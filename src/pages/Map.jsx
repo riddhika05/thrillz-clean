@@ -5,16 +5,18 @@ import { FaArrowLeft } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import { supabase } from "../supabaseClient";
-import DreamyLoader from '../components/loader' // Ensure this path is correct
+import DreamyLoader from "../components/loader"; // Ensure this path is correct
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import axios from "axios";
+import bgImage from "../assets/new post.png";
 
 // Fix Leaflet marker icon issue
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconRetinaUrl:
+    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
@@ -225,103 +227,108 @@ export default function Map() {
 
   return (
     <>
-    {loading && <DreamyLoader />} {/* Conditional rendering of the loader */}
-    <div
-      className={`relative min-h-screen w-full overflow-hidden bg-cover bg-center ${loading ? 'hidden' : ''}`} // Hide main content while loading
-      style={{ backgroundImage: "url('/src/assets/new post.png')" }}
-    >
-      <div className="absolute top-4 left-4 z-20" onClick={() => navigate("/post")}>
-        <FaArrowLeft className="text-pink-300 text-3xl cursor-pointer" />
-      </div>
-
-      {/* 🔍 Search + Dropdown */}
-      <div className="mx-auto mt-6 w-[95%] sm:w-[90%] max-w-3xl flex flex-col sm:flex-row gap-3">
-        <form
-          onSubmit={handleSearch}
-          className="flex flex-1 items-center rounded-full border border-gray-300 bg-white shadow-md px-4 py-2"
+      {loading && <DreamyLoader />} {/* Conditional rendering of the loader */}
+      <div
+        className={`relative min-h-screen w-full overflow-hidden bg-cover bg-center ${
+          loading ? "hidden" : ""
+        }`}
+        style={{ backgroundImage: `url(${bgImage})` }}
+      >
+        <div
+          className="absolute top-4 left-4 z-20"
+          onClick={() => navigate("/post")}
         >
-          <Search className="w-5 h-5 text-gray-500 mr-2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search for a place..."
-            className="flex-1 outline-none text-gray-700"
-          />
-          <button
-            type="submit"
-            className="ml-3 rounded-full bg-violet-500 text-white px-4 py-2"
+          <FaArrowLeft className="text-pink-300 text-3xl cursor-pointer" />
+        </div>
+
+        {/* 🔍 Search + Dropdown */}
+        <div className="mx-auto mt-6 w-[95%] sm:w-[90%] max-w-3xl flex flex-col sm:flex-row gap-3">
+          <form
+            onSubmit={handleSearch}
+            className="flex flex-1 items-center rounded-full border border-gray-300 bg-white shadow-md px-4 py-2"
           >
-            Go
-          </button>
-        </form>
-
-        <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          className="rounded-full border border-gray-300 bg-white shadow-md px-3 py-2 text-gray-700 focus:outline-none text-sm sm:text-base"
-        >
-          <option value="cafe">Cafés</option>
-          <option value="restaurant">Restaurants</option>
-          <option value="fast_food">Fast Food</option>
-          <option value="atm">ATMs</option>
-          <option value="hospital">Hospitals</option>
-          <option value="pharmacy">Pharmacies</option>
-          <option value="school">Schools</option>
-          <option value="park">Parks</option>
-          <option value="library">Libraries</option>
-        </select>
-      </div>
-
-      {/* Map */}
-      <div className="mx-auto mt-6 w-[95%] sm:w-[90%] max-w-5xl">
-        <div className="relative h-[50vh] sm:h-[60vh] rounded-[28px] shadow-lg overflow-hidden">
-          {loaded && (
-            <MapContainer
-              center={position}
-              zoom={16}
-              style={{ height: "100%", width: "100%" }}
-              className="rounded-[28px]"
+            <Search className="w-5 h-5 text-gray-500 mr-2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search for a place..."
+              className="flex-1 outline-none text-gray-700"
+            />
+            <button
+              type="submit"
+              className="ml-3 rounded-full bg-violet-500 text-white px-4 py-2"
             >
-              <MapUpdater position={position} />
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                maxZoom={18}
-              />
-              <MyLocationMarker position={position} placeName={placeName} />
-              {relevantPlaces.map((place) => (
-                <Marker key={place.id} position={[place.lat, place.lon]}>
-                  <Popup>{place.tags.name}</Popup>
-                </Marker>
-              ))}
-              {whispers.map((whisper) => (
-                <Marker
-                  key={whisper.id}
-                  position={[whisper.lat, whisper.lon]}
-                  icon={whisperIcon}
-                >
-                  <Popup>{whisper.content}</Popup>
-                </Marker>
-              ))}
-            </MapContainer>
-          )}
-        </div>
-      </div>
+              Go
+            </button>
+          </form>
 
-      {/* Bottom action bar */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-6 flex w-full justify-center">
-        <div className="pointer-events-auto flex flex-wrap items-center gap-4 sm:gap-6 rounded-3xl border border-white/20 bg-white/15 px-4 py-3 shadow-xl backdrop-blur-xl">
-          <Button
-            icon={Navigation}
-            onClick={locateMe}
-            className="bg-violet-500/90 hover:bg-violet-500/90"
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="rounded-full border border-gray-300 bg-white shadow-md px-3 py-2 text-gray-700 focus:outline-none text-sm sm:text-base"
           >
-            Locate Me
-          </Button>
+            <option value="cafe">Cafés</option>
+            <option value="restaurant">Restaurants</option>
+            <option value="fast_food">Fast Food</option>
+            <option value="atm">ATMs</option>
+            <option value="hospital">Hospitals</option>
+            <option value="pharmacy">Pharmacies</option>
+            <option value="school">Schools</option>
+            <option value="park">Parks</option>
+            <option value="library">Libraries</option>
+          </select>
+        </div>
+
+        {/* Map */}
+        <div className="mx-auto mt-6 w-[95%] sm:w-[90%] max-w-5xl">
+          <div className="relative h-[50vh] sm:h-[60vh] rounded-[28px] shadow-lg overflow-hidden">
+            {loaded && (
+              <MapContainer
+                center={position}
+                zoom={16}
+                style={{ height: "100%", width: "100%" }}
+                className="rounded-[28px]"
+              >
+                <MapUpdater position={position} />
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  maxZoom={18}
+                />
+                <MyLocationMarker position={position} placeName={placeName} />
+                {relevantPlaces.map((place) => (
+                  <Marker key={place.id} position={[place.lat, place.lon]}>
+                    <Popup>{place.tags.name}</Popup>
+                  </Marker>
+                ))}
+                {whispers.map((whisper) => (
+                  <Marker
+                    key={whisper.id}
+                    position={[whisper.lat, whisper.lon]}
+                    icon={whisperIcon}
+                  >
+                    <Popup>{whisper.content}</Popup>
+                  </Marker>
+                ))}
+              </MapContainer>
+            )}
+          </div>
+        </div>
+
+        {/* Bottom action bar */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-6 flex w-full justify-center">
+          <div className="pointer-events-auto flex flex-wrap items-center gap-4 sm:gap-6 rounded-3xl border border-white/20 bg-white/15 px-4 py-3 shadow-xl backdrop-blur-xl">
+            <Button
+              icon={Navigation}
+              onClick={locateMe}
+              className="bg-violet-500/90 hover:bg-violet-500/90"
+            >
+              Locate Me
+            </Button>
+          </div>
         </div>
       </div>
-    </div>
     </>
   );
 }
