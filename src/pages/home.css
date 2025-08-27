@@ -1,0 +1,19 @@
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Parisienne&family=Playfair+Display:wght@700&family=Poppins:wght@400;600&display=swap');
+
+/* Custom font classes */
+.font-vibes {
+  font-family: 'Great Vibes', cursive;
+}
+
+.font-parisienne {
+  font-family: 'Parisienne', cursive;
+}
+
+.font-playfair {
+  font-family: 'Playfair Display', serif;
+}
+
+.font-poppins {
+  font-family: 'Poppins', sans-serif;
+}

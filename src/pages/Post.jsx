@@ -1,24 +1,34 @@
-import React, { useState } from "react";
-import musicIcon from "../assets/music.png";
-import profileAvatar from "../assets/girl.png";
-import Whispers from "./Whispers";
+import React, { useState, useEffect } from "react";
+import musicIcon from "../assets/music.png"; // Ensure this path is correct
+import profileAvatar from "../assets/girl.png"; // Ensure this path is correct
+import Whispers from "./Whispers"; // Ensure this path is correct
 import { useNavigate } from "react-router-dom";
-import postBackground from "../assets/post.png";
+import postBackground from "../assets/post.png"; // Ensure this path is correct
 
+// Main Post component, now receiving audioRef as a prop
 function Post({ audioRef }) {
   return (
     <div
       className="w-screen bg-cover bg-no-repeat bg-center bg-fixed min-h-screen m-0"
       style={{ backgroundImage: `url(${postBackground})` }}
     >
+      {/* Pass audioRef down to the Header component */}
       <Header audioRef={audioRef} />
     </div>
   );
 }
 
+// Header component, now receiving audioRef as a prop
 function Header({ audioRef }) {
   const navigate = useNavigate();
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(false); // State to track mute status
+
+  // Effect to synchronize mute state with the audioRef on component mount
+  useEffect(() => {
+    if (audioRef.current) {
+      setIsMuted(audioRef.current.muted);
+    }
+  }, [audioRef]);
 
   function handleClick() {
     navigate("/profile");
@@ -28,6 +38,7 @@ function Header({ audioRef }) {
     navigate("/newpost");
   }
 
+  // Function to toggle music mute state
   function toggleMusic() {
     if (audioRef.current) {
       audioRef.current.muted = !audioRef.current.muted;
@@ -45,7 +56,7 @@ function Header({ audioRef }) {
           onClick={handleClick}
         />
         <div className="ml-auto flex flex-wrap items-center gap-2 sm:gap-4 md:gap-6 lg:gap-8 text-[#5a4fcf]">
-          {/* Music button */}
+          {/* Music button with mute indicator */}
           <div className="relative cursor-pointer" onClick={toggleMusic}>
             <img
               src={musicIcon}

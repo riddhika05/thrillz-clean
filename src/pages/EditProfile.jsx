@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import girl from "../assets/girl.png";
+import musicIcon from "../assets/music.png"; // <-- add your music icon here
 import "./EditProfile.css";
 import { useNavigate } from "react-router-dom";
 import {
@@ -9,6 +10,7 @@ import {
 } from "unique-names-generator";
 import { supabase } from "../supabaseClient";
 import { FaArrowLeft } from "react-icons/fa";
+
 function generateUsername() {
   return uniqueNamesGenerator({
     dictionaries: [adjectives, animals],
@@ -18,14 +20,14 @@ function generateUsername() {
   });
 }
 
-const EditProfile = () => {
+const EditProfile = ({ audioRef }) => {
   const [nickname, setNickname] = useState("");
-  //const [email, setEmail] = useState('');
   const [password, setPassword] = useState("");
   const [triggerWordInput, setTriggerWordInput] = useState("");
   const [triggerWords, setTriggerWords] = useState([]);
   const [profanity, setProfanity] = useState(true);
   const [avatarPreview, setAvatarPreview] = useState(null);
+  const [isMuted, setIsMuted] = useState(false); // ✅ FIXED
 
   const navigate = useNavigate();
 
@@ -38,6 +40,19 @@ const EditProfile = () => {
       setTriggerWordInput("");
     }
   };
+
+  useEffect(() => {
+    if (audioRef?.current) {
+      setIsMuted(audioRef.current.muted);
+    }
+  }, [audioRef]);
+
+  function toggleMusic() {
+    if (audioRef?.current) {
+      audioRef.current.muted = !audioRef.current.muted;
+      setIsMuted(audioRef.current.muted);
+    }
+  }
 
   const handleRemoveTriggerWord = (wordToRemove) => {
     setTriggerWords(triggerWords.filter((word) => word !== wordToRemove));
@@ -52,10 +67,9 @@ const EditProfile = () => {
       const { error } = await supabase
         .from("users")
         .update({ username: nickname })
-        .eq("id", 3); // <-- replace with dynamic user id later
+        .eq("id", 3); // TODO: replace with real user id
 
       if (error) throw error;
-
       alert("Nickname updated!");
     } catch (err) {
       console.error("Error updating nickname:", err.message);
@@ -65,6 +79,7 @@ const EditProfile = () => {
 
   const handleLogout = () => {
     alert("Logged Out");
+    navigate("/"); // ✅ directly log out
   };
 
   const handleAvatarChange = (e) => {
@@ -87,48 +102,51 @@ const EditProfile = () => {
     };
   }, [avatarPreview]);
 
-  const handleClick = () => {
-    navigate("/");
-  };
   const handleContinue = () => {
     navigate("/profile");
   };
 
   return (
     <div className="edit-profile-container">
-      <button className="logout-btn-gradient" onClick={handleLogout}>
-        <span className="logout-btn-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M7 12h7m0 0-3-3m3 3-3 3m7-10v14c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2z"
-              stroke="#fff"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </span>
-        <span className="logout-btn-text" onClick={handleClick}>
-          LOG-OUT
-        </span>
-        <span className="logout-btn-arrow">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M10 18l6-6-6-6"
-              stroke="#fff"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </span>
-      </button>
+      
+      <div className="flex items-center justify-end gap-2 ">
+        <button className="logout-btn-gradient" onClick={handleLogout}>
+          <span className="logout-btn-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M7 12h7m0 0-3-3m3 3-3 3m7-10v14c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2z"
+                stroke="#fff"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
+          <span className="logout-btn-text">LOG-OUT</span>
+          <span className="logout-btn-arrow">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M10 18l6-6-6-6"
+                stroke="#fff"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
+        </button>
+        
+      </div>
+    
+
+      {/* Back Arrow */}
       <div className="Arrow">
         <FaArrowLeft
           className="text-pink-300 text-3xl cursor-pointer"
           onClick={handleContinue}
         />
       </div>
+
       {/* Avatar Section */}
       <div className="avatar-container">
         <div className="avatar">
@@ -205,6 +223,7 @@ const EditProfile = () => {
             +
           </button>
         </div>
+
         <div className="trigger-words-section" id="triggerWords">
           {triggerWords.map((word, idx) => (
             <span

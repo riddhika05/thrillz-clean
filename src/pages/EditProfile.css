@@ -237,6 +237,10 @@
   transform: scale(1.1);
   opacity: 0.9;
 }
+.music{
+  position: absolute;
+  right:20
+}
 
 /* -------------------------
    RESPONSIVE MEDIA QUERIES

@@ -43,19 +43,18 @@ function App() {
       <audio ref={audioRef} src="/lofi2.mp3" loop />
 
       <Routes>
-
         <Route path='/' element={<Home />} />
-        <Route path='/post' element={<Post audioRef={audioRef}  />} />
+        <Route path='/post' element={<Post audioRef={audioRef} />} />
         <Route path='/explore' element={<Map />} />
         <Route path='/profile' element={<Profile />} />
-        <Route path='/edit-profile' element={<EditProfile />} />
+        <Route path='/edit-profile' element={<EditProfile audioRef={audioRef}  />} />
         <Route path='/avatar' element={<Avatar />} />
         <Route path='/chatbot' element={<Chatbot />} />
         <Route path='/chat' element={<Chat />} />
-        <Route path='/comments' element={<Comments />} />
+        {/* Pass audioRef to Comments component */}
+        <Route path='/comments' element={<Comments audioRef={audioRef} />} /> 
         <Route path='/newpost' element={<Newpost />} />
         <Route path='/follow' element={<Follow />} />
-
       </Routes>
     </Router>
   );

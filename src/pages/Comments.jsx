@@ -1,11 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import musicIcon from "../assets/music.png";
 import profileAvatar from "../assets/girl.png";
 import chatbkg from "../assets/profile_bkg.png";
 import { FaArrowLeft } from "react-icons/fa";
 
-const Chat = () => {
+// Receive audioRef as a prop
+const Chat = ({ audioRef }) => { 
   const navigate = useNavigate();
   const location = useLocation();
   const { whisper } = location.state || {};
@@ -22,6 +23,14 @@ const Chat = () => {
     { id: 4, user: "pookie11", text: "keep going!", likes: 1 },
     { id: 5, user: "lovepizza19", text: "this is great!", likes: 5 },
   ]);
+  const [isMuted, setIsMuted] = useState(false); // State to track mute status
+
+  // Effect to synchronize mute state with the audioRef on component mount
+  useEffect(() => {
+    if (audioRef.current) {
+      setIsMuted(audioRef.current.muted);
+    }
+  }, [audioRef]);
 
   const toggleLike = (id) => {
     setComments((prev) =>
@@ -41,6 +50,14 @@ const Chat = () => {
   const handleBack = () => navigate("/post");
   const handleClickBot = () => navigate("/chatbot");
   const handleExploreClick = () => navigate("/explore");
+
+  // Function to toggle music mute state
+  function toggleMusic() {
+    if (audioRef.current) {
+      audioRef.current.muted = !audioRef.current.muted;
+      setIsMuted(audioRef.current.muted);
+    }
+  }
 
   const PostCard = () => {
     if (!whisper) {
@@ -73,6 +90,7 @@ const Chat = () => {
               src={whisper.Image_url}
               alt="Whisper"
               className="w-40 h-40 object-cover rounded-lg shadow"
+              loading="lazy" // Added lazy loading
             />
           </div>
         )}
@@ -102,11 +120,20 @@ const Chat = () => {
             onClick={handleClick}
           />
           <div className="ml-auto flex items-center gap-2 sm:gap-4 md:gap-6 lg:gap-8 text-[#5a4fcf]">
-            <img
-              src={musicIcon}
-              alt="Music"
-              className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 cursor-pointer"
-            />
+            {/* Music button with mute indicator */}
+            <div className="relative cursor-pointer" onClick={toggleMusic}>
+              <img
+                src={musicIcon}
+                alt="Music"
+                className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12"
+              />
+              {isMuted && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-full h-[3px] bg-red-600 rotate-45"></div>
+                </div>
+              )}
+            </div>
+
             <div
               className="w-28 h-10 sm:w-32 sm:h-12 bg-[#D9D9D9] rounded-[40px] flex items-center justify-center cursor-pointer text-sm sm:text-base shadow-md hover:bg-[#c9c9c9] transition-colors p-2"
               onClick={handleExploreClick}
