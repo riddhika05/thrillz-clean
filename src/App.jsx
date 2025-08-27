@@ -40,7 +40,7 @@ function App() {
   return (
     <Router>
       {/* Hidden audio player */}
-      <audio ref={audioRef} src="/lofi2.mp3" loop />
+      <audio ref={audioRef} src="/Music.mp3" loop />
 
       <Routes>
         <Route path='/' element={<Home />} />
