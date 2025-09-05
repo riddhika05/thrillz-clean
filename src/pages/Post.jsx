@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import musicIcon from "../assets/music.png"; // Ensure this path is correct
-import profileAvatar from "../assets/girl.png"; // Ensure this path is correct
+import profileAvatar from "../assets/username.png"; // Ensure this path is correct
 import Whispers from "./Whispers"; // Ensure this path is correct
 import { useNavigate } from "react-router-dom";
 import postBackground from "../assets/post.png"; // Ensure this path is correct
+import { supabase } from "../supabaseClient";
 
 // Main Post component, now receiving audioRef as a prop
 function Post({ audioRef }) {
@@ -22,6 +23,7 @@ function Post({ audioRef }) {
 function Header({ audioRef }) {
   const navigate = useNavigate();
   const [isMuted, setIsMuted] = useState(false); // State to track mute status
+  const [avatarUrl, setAvatarUrl] = useState(null);
 
   // Effect to synchronize mute state with the audioRef on component mount
   useEffect(() => {
@@ -29,6 +31,20 @@ function Header({ audioRef }) {
       setIsMuted(audioRef.current.muted);
     }
   }, [audioRef]);
+
+  useEffect(() => {
+    async function loadAvatar() {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) return;
+      const { data, error } = await supabase
+        .from("users")
+        .select("profilepic")
+        .eq("user_id", user.id)
+        .single();
+      if (!error) setAvatarUrl(data?.profilepic || null);
+    }
+    loadAvatar();
+  }, []);
 
   function handleClick() {
     navigate("/profile");
@@ -50,7 +66,7 @@ function Header({ audioRef }) {
     <>
       <div className="sticky top-0 left-0 p-4 sm:p-6 md:p-8 flex items-center z-10">
         <img
-          src={profileAvatar}
+          src={avatarUrl || profileAvatar}
           alt="Profile Avatar"
           className="h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 lg:h-20 lg:w-20 cursor-pointer"
           onClick={handleClick}
