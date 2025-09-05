@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import girl from "../assets/girl.png";
+import girl from "../assets/username.png";
 import musicIcon from "../assets/music.png"; // <-- add your music icon here
 import "./EditProfile.css";
 import { useNavigate } from "react-router-dom";
@@ -27,6 +27,9 @@ const EditProfile = ({ audioRef }) => {
   const [triggerWords, setTriggerWords] = useState([]);
   const [profanity, setProfanity] = useState(true);
   const [avatarPreview, setAvatarPreview] = useState(null);
+  const [selectedAvatarFile, setSelectedAvatarFile] = useState(null);
+  const [profilePic, setProfilePic] = useState(null);
+  const [profileId, setProfileId] = useState(null);
   const [isMuted, setIsMuted] = useState(false); // ✅ FIXED
 
   const navigate = useNavigate();
@@ -64,16 +67,46 @@ const EditProfile = ({ audioRef }) => {
     e.preventDefault();
 
     try {
+      // Resolve current user for filtering by user_id
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error(authError?.message || "No logged-in user");
+
+      let profilepicUrl = profilePic || null;
+
+      // If a new avatar file is chosen, upload it to Supabase Storage
+      if (selectedAvatarFile) {
+        const file = selectedAvatarFile;
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const filePath = `${user.id}/${fileName}`;
+
+        const { error: uploadError } = await supabase
+          .storage
+          .from('avatars')
+          .upload(filePath, file, { upsert: true });
+        if (uploadError) throw uploadError;
+
+        const { data: publicData } = supabase
+          .storage
+          .from('avatars')
+          .getPublicUrl(filePath);
+        profilepicUrl = publicData?.publicUrl || profilepicUrl;
+      }
+
+      const updates = { username: nickname };
+      if (profilepicUrl) updates.profilepic = profilepicUrl;
+
       const { error } = await supabase
         .from("users")
-        .update({ username: nickname })
-        .eq("id", 3); // TODO: replace with real user id
+        .update(updates)
+        .eq("user_id", user.id);
 
       if (error) throw error;
-      alert("Nickname updated!");
+      if (profilepicUrl) setProfilePic(profilepicUrl);
+      alert("Profile updated!");
     } catch (err) {
-      console.error("Error updating nickname:", err.message);
-      alert("Failed to update nickname");
+      console.error("Error saving profile:", err.message);
+      alert("Failed to save profile");
     }
   };
 
@@ -87,6 +120,7 @@ const EditProfile = ({ audioRef }) => {
     if (file) {
       const url = URL.createObjectURL(file);
       setAvatarPreview(url);
+      setSelectedAvatarFile(file);
     }
   };
 
@@ -105,6 +139,26 @@ const EditProfile = ({ audioRef }) => {
   const handleContinue = () => {
     navigate("/profile");
   };
+
+  // Load current user's profile and avatar
+  useEffect(() => {
+    async function loadProfile() {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) return;
+      const { data, error } = await supabase
+        .from("users")
+        .select("id, username, profilepic")
+        .eq("user_id", user.id)
+        .single();
+      if (!error && data) {
+        setProfileId(data.id);
+        // Do not prefill nickname with actual username; keep generated one
+        setProfilePic(data.profilepic || null);
+        setAvatarPreview(data.profilepic || null);
+      }
+    }
+    loadProfile();
+  }, []);
 
   return (
     <div className="edit-profile-container">
@@ -151,7 +205,7 @@ const EditProfile = ({ audioRef }) => {
       <div className="avatar-container">
         <div className="avatar">
           <img
-            src={avatarPreview || girl}
+            src={avatarPreview || profilePic || girl}
             alt="User Avatar"
             style={{ width: "100%", height: "100%", borderRadius: "50%" }}
           />
@@ -258,7 +312,7 @@ const EditProfile = ({ audioRef }) => {
 
         <div className="form-row">
           <label className="edit-label" htmlFor="profanity-toggle">
-            Profanity
+            Profanity Remover
           </label>
           <div
             id="profanity-toggle"

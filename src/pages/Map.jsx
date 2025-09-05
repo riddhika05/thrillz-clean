@@ -109,20 +109,6 @@ export default function Map() {
     }
   };
 
-  // Function to save the fetched location name to Supabase
-  const saveLocationToDB = async (locationName) => {
-    try {
-      const { data, error } = await supabase
-        .from("users")
-        .update({ Location: locationName })
-        .eq("id", 3); // Assuming user ID 3 for now
-
-      if (error) console.error("Supabase update error:", error);
-      else console.log("✅ Location saved to DB:", data);
-    } catch (err) {
-      console.error("DB save error:", err);
-    }
-  };
 
   // Function to fetch and set nearby places from Overpass API
   const fetchAndSetPlaces = async (lat, lon, cat = category) => {
@@ -161,7 +147,6 @@ export default function Map() {
           setPlaceName(name); // Update place name
           await fetchAndSetPlaces(newPosition[0], newPosition[1], category); // Fetch nearby places
           setLoading(false); // End loading
-          saveLocationToDB(name); // Save to DB
         },
         async (err) => { // This callback also needs to be async if it uses await
           console.error("Geolocation error:", err);
@@ -203,7 +188,6 @@ export default function Map() {
         setPlaceName(place.display_name); // Update place name
         await fetchAndSetPlaces(newPosition[0], newPosition[1], category); // Fetch nearby places
         setLoading(false); // End loading
-        saveLocationToDB(place.display_name); // Save searched place to DB
       } else {
         setPlaceName("No results found for your search.");
         setLoading(false); // End loading

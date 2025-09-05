@@ -19,13 +19,27 @@ const Follow = () => {
   const location = useLocation();
   const { whisper } = location.state || {};
   const { width, height } = useWindowSize();
-  // 🚨 Redirect to /profile if user_id is 3
+  const [currentProfileId, setCurrentProfileId] = useState(null);
+
+  // Fetch current auth user and map to profile id, redirect if viewing self
   useEffect(() => {
-    const userId = whisper ? whisper.user_id : 3;
-    if (userId === 3) {
-      navigate("/profile");
+    async function fetchCurrentProfileId() {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) return;
+      const { data, error } = await supabase
+        .from("users")
+        .select("id")
+        .eq("user_id", user.id)
+        .single();
+      if (!error && data?.id) {
+        setCurrentProfileId(data.id);
+        if (whisper && whisper.user_id === data.id) {
+          navigate("/profile");
+        }
+      }
     }
-  }, [whisper, navigate]);
+    fetchCurrentProfileId();
+  }, [navigate, whisper]);
 
   const handleCommentClick = (whisper) => {
     navigate("/comments", { state: { whisper } });
@@ -61,7 +75,9 @@ const Follow = () => {
 
   useEffect(() => {
     async function fetchWhispers() {
-      const userId = whisper ? whisper.user_id : 3;
+      const userId = whisper ? whisper.user_id : null;
+
+      if (!userId) return;
 
       const { data, error } = await supabase
         .from("Whispers")
@@ -89,10 +105,10 @@ const Follow = () => {
     ? whisper.users
     : { username: "Guest User", profilepic: "placeholder_url", whispers: 0 };
 
-  const isCurrentUserProfile = whisper && whisper.user_id === 3;
+  const isCurrentUserProfile = whisper && currentProfileId && whisper.user_id === currentProfileId;
 
   // 🚨 Prevent rendering anything while redirecting
-  if (isCurrentUserProfile || (!whisper && 3 === 3)) return null;
+  if (isCurrentUserProfile) return null;
 
   return (
     <div

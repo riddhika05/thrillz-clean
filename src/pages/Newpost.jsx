@@ -16,6 +16,7 @@ export default function NewPost() {
   const fileInputRef = useRef();
   const textareaRef = useRef(null);
   const [currentLocation, setCurrentLocation] = useState("Loading location...");
+  const [profileId, setProfileId] = useState(null);
 
   const navigate = useNavigate();
 
@@ -63,10 +64,29 @@ export default function NewPost() {
         imageUrl = urlData.publicUrl;
       }
 
+      // Resolve current auth user -> users.id
+      if (!profileId) {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) throw new Error(authError?.message || "No logged-in user");
+        const { data: profile, error: profileError } = await supabase
+          .from("users")
+          .select("id")
+          .eq("user_id", user.id)
+          .single();
+        if (profileError) throw profileError;
+        setProfileId(profile.id);
+      }
+
+      const effectiveUserId = profileId || (await (async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: profile } = await supabase.from("users").select("id").eq("user_id", user.id).single();
+        return profile.id;
+      })());
+
       const { error: insertError } = await supabase.from("Whispers").insert([
         {
           content: text,
-          user_id: 3,
+          user_id: effectiveUserId,
           Image_url: imageUrl,
         },
       ]);
@@ -84,11 +104,32 @@ export default function NewPost() {
   // Fetches location from Supabase or geocodes if null
   useEffect(() => {
     const fetchLocation = async () => {
-      // 1. Fetch location from Supabase for user with id=3
+      // Resolve profile id if not set
+      let idToUse = profileId;
+      if (!idToUse) {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) {
+          setCurrentLocation("Could not fetch location.");
+          return;
+        }
+        const { data: profile, error: profileError } = await supabase
+          .from("users")
+          .select("id")
+          .eq("user_id", user.id)
+          .single();
+        if (profileError) {
+          setCurrentLocation("Could not fetch location.");
+          return;
+        }
+        idToUse = profile.id;
+        setProfileId(idToUse);
+      }
+
+      // 1. Fetch location from Supabase for this user profile
       const { data, error } = await supabase
         .from("users")
         .select("Location")
-        .eq("id", 3)
+        .eq("id", idToUse)
         .single();
       
       if (error) {
@@ -117,7 +158,7 @@ export default function NewPost() {
                 const { error: updateError } = await supabase
                   .from("users")
                   .update({ Location: fetchedLocationName })
-                  .eq("id", 3);
+                  .eq("id", idToUse);
 
                 if (updateError) {
                   console.error("Error updating location:", updateError);

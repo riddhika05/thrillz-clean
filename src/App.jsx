@@ -12,7 +12,8 @@ import Chat from "./pages/Chat";
 import Comments from "./pages/Comments";
 import Newpost from "./pages/Newpost";
 import Follow from "./pages/Follow";
-
+import Signup from "./pages/Signup"
+import Login from "./pages/Login"
 function App() {
   const audioRef = useRef(null);
 
@@ -43,18 +44,23 @@ function App() {
       <audio ref={audioRef} src="/Music.mp3" loop />
 
       <Routes>
-        <Route path='/' element={<Home />} />
-        <Route path='/post' element={<Post audioRef={audioRef} />} />
-        <Route path='/explore' element={<Map />} />
-        <Route path='/profile' element={<Profile />} />
-        <Route path='/edit-profile' element={<EditProfile audioRef={audioRef}  />} />
-        <Route path='/avatar' element={<Avatar />} />
-        <Route path='/chatbot' element={<Chatbot />} />
-        <Route path='/chat' element={<Chat />} />
+        <Route path="/" element={<Home />} />
+        <Route path="/post" element={<Post audioRef={audioRef} />} />
+        <Route path="/explore" element={<Map />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route
+          path="/edit-profile"
+          element={<EditProfile audioRef={audioRef} />}
+        />
+        <Route path="/avatar" element={<Avatar />} />
+        <Route path="/chatbot" element={<Chatbot />} />
+        <Route path="/chat" element={<Chat />} />
         {/* Pass audioRef to Comments component */}
-        <Route path='/comments' element={<Comments audioRef={audioRef} />} /> 
-        <Route path='/newpost' element={<Newpost />} />
-        <Route path='/follow' element={<Follow />} />
+        <Route path="/comments" element={<Comments audioRef={audioRef} />} />
+        <Route path="/newpost" element={<Newpost />} />
+        <Route path="/follow" element={<Follow />} />
+         <Route path="/signup" element={<Signup />} />
+          <Route path="/login" element={<Login />} />
       </Routes>
     </Router>
   );

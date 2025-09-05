@@ -5,7 +5,7 @@ const Home = () => {
   const navigate = useNavigate();
 
   const handleContinue = () => {
-    navigate("/post");
+    navigate("/login");
   };
 
   return (
