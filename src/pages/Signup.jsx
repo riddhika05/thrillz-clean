@@ -36,10 +36,11 @@ const Signup = () => {
 
       if (authUserId) {
         const username = (email || "").split("@")[0];
+        const defaultAvatarUrl = "https://avatar.iran.liara.run/public";
         // Try to insert a record for this user in public.users
         const { error: insertError } = await supabase
           .from("users")
-          .insert({ user_id: authUserId, username });
+          .insert({ user_id: authUserId, username, profilepic: defaultAvatarUrl });
         // If it already exists, ignore; otherwise report
         if (insertError && insertError.code !== '23505') {
           console.warn('Could not insert into users table:', insertError.message);
