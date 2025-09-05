@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { signUp } from "../Services/Auth";
+import { supabase } from "../supabaseClient";
 import bgd from "../assets/login_bg.jpg";
 
 const Signup = () => {
@@ -21,10 +22,28 @@ const Signup = () => {
     }
     try {
       setLoading(true);
-      const { error } = await signUp(email, password, "user");
+      const { data, error } = await signUp(email, password, "user");
       if (error) {
         alert(error.message || "Signup failed");
         return;
+      }
+      // Ensure we have the created user's id (confirmation flows may not return session)
+      let authUserId = data?.user?.id;
+      if (!authUserId) {
+        const { data: getUserData } = await supabase.auth.getUser();
+        authUserId = getUserData?.user?.id || null;
+      }
+
+      if (authUserId) {
+        const username = (email || "").split("@")[0];
+        // Try to insert a record for this user in public.users
+        const { error: insertError } = await supabase
+          .from("users")
+          .insert({ user_id: authUserId, username });
+        // If it already exists, ignore; otherwise report
+        if (insertError && insertError.code !== '23505') {
+          console.warn('Could not insert into users table:', insertError.message);
+        }
       }
       navigate("/post");
     } finally {
