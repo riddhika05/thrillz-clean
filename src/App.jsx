@@ -61,6 +61,7 @@ function App() {
         <Route path="/follow" element={<Follow />} />
          <Route path="/signup" element={<Signup />} />
           <Route path="/login" element={<Login />} />
+            <Route path="/Map" element={<Comments audioRef={audioRef} />} />
       </Routes>
     </Router>
   );

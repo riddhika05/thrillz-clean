@@ -10,7 +10,7 @@ import "leaflet/dist/leaflet.css"; // Ensure leaflet is installed
 import L from "leaflet"; // Ensure leaflet is installed
 import axios from "axios";
 import bgImage from "../assets/new post.png"; // Ensure this path is correct and file exists
-
+import musicIcon from "../assets/music.png"; 
 // Fix Leaflet marker icon issue
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -82,7 +82,7 @@ const generateWhispers = (lat, lon) => {
 };
 
 // Main Map component
-export default function Map() {
+export default function Map({ audioRef }) {
   // State variables for map position, place name, relevant places, whispers, search query, category, and loading status
   // Initial position set to Delhi's coordinates (approximate center)
   const DELHI_COORDS = [28.6139, 77.2090];
