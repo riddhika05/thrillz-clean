@@ -1,14 +1,14 @@
 "use client";
 import { motion, useScroll, useTransform } from "framer-motion";
-import heartIcon from "../assets/heart.png";
 import commentIcon from "../assets/comment.png";
-import trashIcon from "../assets/Trash.png";
 import { useNavigate } from "react-router-dom";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import HeartButton from "../components/heart";
+
 const Whisper = ({ whisper, containerRef }) => {
   const user = whisper.users;
   const ref = useRef(null);
+  const [locationName, setLocationName] = useState("");
 
   const { scrollYProgress } = useScroll({
     target: ref,
@@ -24,10 +24,29 @@ const Whisper = ({ whisper, containerRef }) => {
     navigate("/comments", { state: { whisper } });
   };
 
-  // New handler for clicking on the user's profile
   const handleUserClick = () => {
     navigate("/follow", { state: { whisper } });
   };
+
+  // Fetch human-readable location from lat/lon
+  useEffect(() => {
+    const fetchLocation = async () => {
+      if (!whisper.latitude || !whisper.longitude) return;
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${whisper.latitude}&lon=${whisper.longitude}&format=json`
+        );
+        const data = await res.json();
+         if (data?.display_name) {
+        setLocationName(data.display_name);
+      }
+      } catch (err) {
+        console.error("Error fetching location:", err);
+      }
+    };
+
+    fetchLocation();
+  }, [whisper.latitude, whisper.longitude]);
 
   return (
     <motion.div
@@ -51,27 +70,33 @@ const Whisper = ({ whisper, containerRef }) => {
               className="flex flex-col cursor-pointer"
               onClick={handleUserClick}
             >
-              {" "}
-              {/* Added onClick here */}
               <span className="text-pink-800 font-semibold text-xs sm:text-sm">
                 {user.username}
               </span>
+              {locationName && (
+                <span className="text-pink-600 text-[10px] sm:text-xs">
+                  📍 {locationName}
+                </span>
+              )}
             </div>
           </>
         )}
       </div>
+
       <div className="mt-2 font-[cursive] text-sm sm:text-[16px] text-[#784552] leading-6">
         {whisper.content}
       </div>
+
       {whisper.Image_url && (
         <div className="mt-2 flex justify-center">
           <img
             src={whisper.Image_url}
             alt="Whisper"
-            className="w-40 h-40 object-cover rounded-lg shadow" // Fixed size
+            className="w-40 h-40 object-cover rounded-lg shadow"
           />
         </div>
       )}
+
       <div className="flex gap-4 sm:gap-6 md:gap-8 bg-pink-400 rounded-2xl px-4 py-2 sm:px-6 sm:py-3 mt-4 sm:mt-6 justify-center shadow-lg">
         <button className="hover:scale-110 transition-transform">
           <HeartButton />

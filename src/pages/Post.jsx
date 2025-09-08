@@ -24,6 +24,10 @@ function Header({ audioRef }) {
   const navigate = useNavigate();
   const [isMuted, setIsMuted] = useState(false); // State to track mute status
   const [avatarUrl, setAvatarUrl] = useState(null);
+  const [locationName, setLocationName] = useState(null);
+
+  
+
 
   // Effect to synchronize mute state with the audioRef on component mount
   useEffect(() => {

@@ -82,12 +82,29 @@ export default function NewPost() {
         const { data: profile } = await supabase.from("users").select("id").eq("user_id", user.id).single();
         return profile.id;
       })());
-
+      
+       // Get live coordinates
+    let latitude = null;
+    let longitude = null;
+    if (navigator.geolocation) {
+      await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            latitude = pos.coords.latitude;
+            longitude = pos.coords.longitude;
+            resolve();
+          },
+          reject
+        );
+      });
+    }
       const { error: insertError } = await supabase.from("Whispers").insert([
         {
           content: text,
           user_id: effectiveUserId,
           Image_url: imageUrl,
+          latitude,
+          longitude,
         },
       ]);
 

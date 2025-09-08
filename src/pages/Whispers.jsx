@@ -14,6 +14,8 @@ const Whispers = () => {
     content,
     user_id,
     Image_url,
+    longitude,
+    latitude,
     users:user_id (username, gmail, profilepic)
   `);
    console.log("Full response:", { data, error });
