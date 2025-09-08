@@ -1,3 +1,5 @@
+// Profile.jsx
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaArrowLeft } from "react-icons/fa";
@@ -17,6 +19,7 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [profilePic, setProfilePic] = useState(null);
   const [Username, setUsername] = useState(null);
+  const [points, setPoints] = useState(20); // New state for points
   const navigate = useNavigate();
 
   // 🔹 Handlers
@@ -61,7 +64,7 @@ const Profile = () => {
         // Get profile and avatar from users table by FK user_id
         const { data: profile, error: profileError } = await supabase
           .from("users")
-          .select("id,username, profilepic")
+          .select("id,username, profilepic, points") // Added 'points' to the select statement
           .eq("user_id", user.id)
           .single();
 
@@ -71,6 +74,8 @@ const Profile = () => {
         }
         setProfilePic(profile?.profilepic || null);
         setUsername(profile.username);
+        setPoints(profile.points); // Set the points state
+        
         // Fetch whispers for this profile
         const { data, error } = await supabase
           .from("Whispers")
@@ -123,7 +128,7 @@ const Profile = () => {
         <div className="text-white font-bold text-xs sm:text-lg font-['Delius']" >{Username}</div>
         <div className="flex flex-wrap justify-center gap-6 md:gap-8 lg:gap-10">
           <div className="flex flex-col items-center">
-            <span className="text-2xl md:text-3xl lg:text-4xl font-bold text-white">2k</span>
+            <span className="text-2xl md:text-3xl lg:text-4xl font-bold text-white">{points}</span>
             <span className="text-sm md:text-base lg:text-lg text-white">points</span>
           </div>
           <div className="flex flex-col items-center">

@@ -72,6 +72,7 @@ const Signup = () => {
         user_id: authUserId,
         username,
         profilepic: storedAvatarUrl,
+        points: 20,
       });
 
     if (insertError && insertError.code !== "23505") {
