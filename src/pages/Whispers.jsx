@@ -1,3 +1,5 @@
+// Whispers.jsx
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from "../supabaseClient";
 import Whisper from "./Whisper";
@@ -20,6 +22,7 @@ const Whispers = () => {
   const [whispers, setWhispers] = useState([]);
   const [error, setError] = useState(null);
   const [userLocation, setUserLocation] = useState({ latitude: null, longitude: null });
+  const [isLocationLoading, setIsLocationLoading] = useState(true); // New state variable
   const maxDistance = 1.2; // hardcoded distance in km
 
   // Get user location
@@ -31,15 +34,24 @@ const Whispers = () => {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
           });
+          setIsLocationLoading(false); // Set to false on success
         },
-        (err) => console.error("Location error:", err)
+        (err) => {
+          console.error("Location error:", err);
+          setIsLocationLoading(false); // Set to false on error
+        }
       );
+    } else {
+      setIsLocationLoading(false); // Also set to false if geolocation isn't supported
     }
   }, []);
 
   // Fetch whispers
   useEffect(() => {
     async function fetchWhispers() {
+      // Don't fetch whispers until location is available or confirmed unavailable
+      if (isLocationLoading) return;
+
       const { data, error } = await supabase.from("Whispers").select(`
         id,
         content,
@@ -55,28 +67,34 @@ const Whispers = () => {
         return;
       }
 
-      if (userLocation.latitude && userLocation.longitude) {
-        const whispersWithDistance = data.map((w) => {
-          if (!w.latitude || !w.longitude) return { ...w, distance: Infinity };
-          const distance = getDistanceFromLatLonInKm(
-            userLocation.latitude,
-            userLocation.longitude,
-            w.latitude,
-            w.longitude
-          );
-          return { ...w, distance };
-        });
-        whispersWithDistance.sort((a, b) => a.distance - b.distance);
-        setWhispers(whispersWithDistance);
-      } else {
-        setWhispers(data.map((w) => ({ ...w, distance: null }))); // fallback
-      }
+      const whispersWithDistance = data.map((w) => {
+        if (!userLocation.latitude || !userLocation.longitude) {
+          // If location is not available, all whispers are "locked"
+          return { ...w, distance: Infinity };
+        }
+        if (!w.latitude || !w.longitude) {
+          // If whisper has no location, it's also "locked"
+          return { ...w, distance: Infinity };
+        }
+
+        const distance = getDistanceFromLatLonInKm(
+          userLocation.latitude,
+          userLocation.longitude,
+          w.latitude,
+          w.longitude
+        );
+        return { ...w, distance };
+      });
+      
+      whispersWithDistance.sort((a, b) => a.distance - b.distance);
+      setWhispers(whispersWithDistance);
     }
     fetchWhispers();
-  }, [userLocation]);
+  }, [userLocation, isLocationLoading]); // Add isLocationLoading to dependency array
 
   if (error) return <div>Error: {error}</div>;
-  if (!whispers.length) return <DreamyLoader />;
+  if (isLocationLoading) return <DreamyLoader />; // Show loader while getting location
+  if (!whispers.length) return <DreamyLoader />; // Show loader while fetching whispers
 
   return (
     <ul style={{ listStyleType: "none" }}>
