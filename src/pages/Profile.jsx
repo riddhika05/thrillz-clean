@@ -7,17 +7,34 @@ import myImage from "../assets/username.png";
 import profileBkg from "../assets/profile_bkg.png";
 import commentIcon from "../assets/comment.png";
 import trashIcon from "../assets/Trash.png";
+import musicIcon from "../assets/music.png"; // 🎵 add this
 
 import DreamyLoader from "../components/loader";
 import HeartButton from "../components/heart";
 
-const Profile = () => {
+const Profile = ({ audioRef }) => {
   const [whispers, setWhispers] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [profilePic, setProfilePic] = useState(null);
+  const [isMuted, setIsMuted] = useState(false); // 🎵 state for mute/unmute
 
   const navigate = useNavigate();
+
+  // Keep local mute state in sync
+  useEffect(() => {
+    if (audioRef?.current) {
+      setIsMuted(audioRef.current.muted);
+    }
+  }, [audioRef]);
+
+  // Toggle music
+  const toggleMusic = () => {
+    if (audioRef?.current) {
+      audioRef.current.muted = !audioRef.current.muted;
+      setIsMuted(audioRef.current.muted);
+    }
+  };
 
   // 🔹 Handlers
   const handleCommentClick = (whisper) => {
@@ -51,14 +68,12 @@ const Profile = () => {
         setLoading(true);
         setError(null);
 
-        // Get logged-in auth user
         const { data: { user }, error: authError } = await supabase.auth.getUser();
         if (authError || !user) {
           setError(authError?.message || "No logged-in user found");
           return;
         }
 
-        // Get profile and avatar from users table by FK user_id
         const { data: profile, error: profileError } = await supabase
           .from("users")
           .select("id, profilepic")
@@ -71,18 +86,15 @@ const Profile = () => {
         }
         setProfilePic(profile?.profilepic || null);
 
-        // Fetch whispers for this profile
         const { data, error } = await supabase
           .from("Whispers")
-          .select(
-            `
+          .select(`
             id,
             content,
             user_id,
             Image_url,
             users:user_id (username, gmail, profilepic)
-          `
-          )
+          `)
           .eq("user_id", profile.id);
 
         if (error) throw error;
@@ -109,6 +121,20 @@ const Profile = () => {
           className="text-pink-300 text-3xl cursor-pointer"
           onClick={handleContinue}
         />
+
+        {/* 🎵 Music Icon */}
+        <div className="relative cursor-pointer" onClick={toggleMusic}>
+          <img
+            src={musicIcon}
+            alt="Music"
+            className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12"
+          />
+          {isMuted && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-full h-[3px] bg-red-600 rotate-45"></div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Profile Image + Stats */}

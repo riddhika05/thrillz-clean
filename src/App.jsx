@@ -46,21 +46,22 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/post" element={<Post audioRef={audioRef} />} />
-        <Route path="/explore" element={<Map />} />
-        <Route path="/profile" element={<Profile />} />
+        <Route path="/explore" element={<Map audioRef={audioRef}/>} />
+        <Route path="/profile" element={<Profile  audioRef={audioRef} />} />
         <Route
-          path="/edit-profile"
-          element={<EditProfile audioRef={audioRef} />}
+          path="/edit-profile" element={<EditProfile    audioRef={audioRef}  />}
+      
         />
         <Route path="/avatar" element={<Avatar />} />
         <Route path="/chatbot" element={<Chatbot />} />
         <Route path="/chat" element={<Chat />} />
         {/* Pass audioRef to Comments component */}
         <Route path="/comments" element={<Comments audioRef={audioRef} />} />
-        <Route path="/newpost" element={<Newpost />} />
+        <Route path="/newpost" element={<Newpost  audioRef={audioRef}/>}/>
         <Route path="/follow" element={<Follow />} />
          <Route path="/signup" element={<Signup />} />
           <Route path="/login" element={<Login />} />
+            <Route path="/Map" element={<Comments audioRef={audioRef} />} />
       </Routes>
     </Router>
   );
