@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import girl from "../assets/username.png";
-import musicIcon from "../assets/music.png"; // <-- add your music icon here
+import musicIcon from "../assets/music.png";
 import "./EditProfile.css";
 import { useNavigate } from "react-router-dom";
 import {
@@ -30,9 +30,23 @@ const EditProfile = ({ audioRef }) => {
   const [selectedAvatarFile, setSelectedAvatarFile] = useState(null);
   const [profilePic, setProfilePic] = useState(null);
   const [profileId, setProfileId] = useState(null);
-  const [isMuted, setIsMuted] = useState(false); // ✅ FIXED
+  const [isMuted, setIsMuted] = useState(false);
 
   const navigate = useNavigate();
+
+  // keep sync with audioRef
+  useEffect(() => {
+    if (audioRef?.current) {
+      setIsMuted(audioRef.current.muted);
+    }
+  }, [audioRef]);
+
+  const toggleMusic = () => {
+    if (audioRef?.current) {
+      audioRef.current.muted = !audioRef.current.muted;
+      setIsMuted(audioRef.current.muted);
+    }
+  };
 
   const handleAddTriggerWord = () => {
     if (
@@ -44,19 +58,6 @@ const EditProfile = ({ audioRef }) => {
     }
   };
 
-  useEffect(() => {
-    if (audioRef?.current) {
-      setIsMuted(audioRef.current.muted);
-    }
-  }, [audioRef]);
-
-  function toggleMusic() {
-    if (audioRef?.current) {
-      audioRef.current.muted = !audioRef.current.muted;
-      setIsMuted(audioRef.current.muted);
-    }
-  }
-
   const handleRemoveTriggerWord = (wordToRemove) => {
     setTriggerWords(triggerWords.filter((word) => word !== wordToRemove));
   };
@@ -67,28 +68,28 @@ const EditProfile = ({ audioRef }) => {
     e.preventDefault();
 
     try {
-      // Resolve current user for filtering by user_id
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) throw new Error(authError?.message || "No logged-in user");
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+      if (authError || !user)
+        throw new Error(authError?.message || "No logged-in user");
 
       let profilepicUrl = profilePic || null;
 
-      // If a new avatar file is chosen, upload it to Supabase Storage
       if (selectedAvatarFile) {
         const file = selectedAvatarFile;
-        const fileExt = file.name.split('.').pop();
+        const fileExt = file.name.split(".").pop();
         const fileName = `${Date.now()}.${fileExt}`;
         const filePath = `${user.id}/${fileName}`;
 
-        const { error: uploadError } = await supabase
-          .storage
-          .from('avatars')
+        const { error: uploadError } = await supabase.storage
+          .from("avatars")
           .upload(filePath, file, { upsert: true });
         if (uploadError) throw uploadError;
 
-        const { data: publicData } = supabase
-          .storage
-          .from('avatars')
+        const { data: publicData } = supabase.storage
+          .from("avatars")
           .getPublicUrl(filePath);
         profilepicUrl = publicData?.publicUrl || profilepicUrl;
       }
@@ -112,7 +113,7 @@ const EditProfile = ({ audioRef }) => {
 
   const handleLogout = () => {
     alert("Logged Out");
-    navigate("/"); // ✅ directly log out
+    navigate("/");
   };
 
   const handleAvatarChange = (e) => {
@@ -140,10 +141,12 @@ const EditProfile = ({ audioRef }) => {
     navigate("/profile");
   };
 
-  // Load current user's profile and avatar
   useEffect(() => {
     async function loadProfile() {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
       if (authError || !user) return;
       const { data, error } = await supabase
         .from("users")
@@ -152,7 +155,6 @@ const EditProfile = ({ audioRef }) => {
         .single();
       if (!error && data) {
         setProfileId(data.id);
-        // Do not prefill nickname with actual username; keep generated one
         setProfilePic(data.profilepic || null);
         setAvatarPreview(data.profilepic || null);
       }
@@ -162,36 +164,26 @@ const EditProfile = ({ audioRef }) => {
 
   return (
     <div className="edit-profile-container">
-      
-      <div className="flex items-center justify-end gap-2 ">
+      {/* Top bar with logout + music */}
+      <div className="flex items-center justify-between">
         <button className="logout-btn-gradient" onClick={handleLogout}>
-          <span className="logout-btn-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M7 12h7m0 0-3-3m3 3-3 3m7-10v14c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2z"
-                stroke="#fff"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </span>
           <span className="logout-btn-text">LOG-OUT</span>
-          <span className="logout-btn-arrow">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M10 18l6-6-6-6"
-                stroke="#fff"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </span>
         </button>
-        
+
+        {/* music toggle */}
+        <div className="relative cursor-pointer mr-3" onClick={toggleMusic}>
+          <img
+            src={musicIcon}
+            alt="Music"
+            className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12"
+          />
+          {isMuted && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-full h-[3px] bg-red-600 rotate-45"></div>
+            </div>
+          )}
+        </div>
       </div>
-    
 
       {/* Back Arrow */}
       <div className="Arrow">
@@ -280,27 +272,11 @@ const EditProfile = ({ audioRef }) => {
 
         <div className="trigger-words-section" id="triggerWords">
           {triggerWords.map((word, idx) => (
-            <span
-              key={idx}
-              className="trigger-word"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                marginRight: "7px",
-              }}
-            >
+            <span key={idx} className="trigger-word">
               {word}
               <button
                 type="button"
-                style={{
-                  marginLeft: "6px",
-                  background: "none",
-                  border: "none",
-                  color: "#fff",
-                  fontSize: "16px",
-                  cursor: "pointer",
-                  lineHeight: "1",
-                }}
+                className="ml-2 text-white"
                 title="Remove trigger word"
                 onClick={() => handleRemoveTriggerWord(word)}
               >
@@ -321,12 +297,6 @@ const EditProfile = ({ audioRef }) => {
             className={`toggle ${profanity ? "active" : ""}`}
             onClick={handleToggleProfanity}
             tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                handleToggleProfanity();
-              }
-            }}
           >
             <div className={`toggle-knob ${profanity ? "active" : ""}`} />
           </div>
