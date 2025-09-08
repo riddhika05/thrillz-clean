@@ -11,46 +11,81 @@ const Signup = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSignup = async () => {
-    if (!email || !password || !confirmPassword) {
-      alert("Please fill all fields");
-      return;
-    }
-    if (password !== confirmPassword) {
-      alert("Passwords do not match");
-      return;
-    }
-    try {
-      setLoading(true);
-      const { data, error } = await signUp(email, password, "user");
-      if (error) {
-        alert(error.message || "Signup failed");
-        return;
-      }
-      // Ensure we have the created user's id (confirmation flows may not return session)
-      let authUserId = data?.user?.id;
-      if (!authUserId) {
-        const { data: getUserData } = await supabase.auth.getUser();
-        authUserId = getUserData?.user?.id || null;
-      }
+ const handleSignup = async () => {
+  if (!email || !password || !confirmPassword) {
+    alert("Please fill all fields");
+    return;
+  }
+  if (password !== confirmPassword) {
+    alert("Passwords do not match");
+    return;
+  }
 
-      if (authUserId) {
-        const username = (email || "").split("@")[0];
-        const defaultAvatarUrl = "https://avatar.iran.liara.run/public";
-        // Try to insert a record for this user in public.users
-        const { error: insertError } = await supabase
-          .from("users")
-          .insert({ user_id: authUserId, username, profilepic: defaultAvatarUrl });
-        // If it already exists, ignore; otherwise report
-        if (insertError && insertError.code !== '23505') {
-          console.warn('Could not insert into users table:', insertError.message);
-        }
-      }
-      navigate("/post");
-    } finally {
-      setLoading(false);
+  try {
+    setLoading(true);
+
+    // 1. Sign up the user
+    const { data, error } = await signUp(email, password, "user");
+    if (error) {
+      alert(error.message || "Signup failed");
+      return;
     }
-  };
+
+    let authUserId = data?.user?.id;
+    if (!authUserId) {
+      const { data: getUserData } = await supabase.auth.getUser();
+      authUserId = getUserData?.user?.id || null;
+    }
+
+    if (!authUserId) {
+      alert("Failed to get user ID");
+      return;
+    }
+
+    // 2. Generate a default avatar
+    const username = (email || "").split("@")[0];
+    const avatarUrl = "https://avatar.iran.liara.run/public";
+
+    // Fetch the avatar as a blob
+    const res = await fetch(avatarUrl);
+    if (!res.ok) throw new Error("Failed to fetch avatar");
+    const blob = await res.blob();
+    const file = new File([blob], `${username}-avatar.png`, { type: blob.type });
+
+    // 3. Upload to Supabase Storage
+    const { data: storageData, error: storageError } = await supabase.storage
+      .from("avatars") // your bucket name
+      .upload(`public/${username}.png`, file, { upsert: true });
+
+    let storedAvatarUrl = avatarUrl; // fallback
+    if (storageError) {
+      console.warn("Error uploading avatar:", storageError.message);
+    } else if (storageData?.path) {
+      storedAvatarUrl = supabase.storage.from("avatars").getPublicUrl(storageData.path).publicUrl;
+    }
+
+    // 4. Insert into users table
+    const { error: insertError } = await supabase
+      .from("users")
+      .insert({
+        user_id: authUserId,
+        username,
+        profilepic: storedAvatarUrl,
+      });
+
+    if (insertError && insertError.code !== "23505") {
+      console.warn("Could not insert into users table:", insertError.message);
+    }
+
+    navigate("/post");
+  } catch (err) {
+    console.error("Signup error:", err);
+    alert("Something went wrong during signup.");
+  } finally {
+    setLoading(false);
+  }
+};
+
   return (
     <div
       className="flex flex-col justify-center items-center h-screen w-full text-center bg-cover bg-center"

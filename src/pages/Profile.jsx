@@ -16,7 +16,7 @@ const Profile = () => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [profilePic, setProfilePic] = useState(null);
-
+  const [Username, setUsername] = useState(null);
   const navigate = useNavigate();
 
   // 🔹 Handlers
@@ -61,7 +61,7 @@ const Profile = () => {
         // Get profile and avatar from users table by FK user_id
         const { data: profile, error: profileError } = await supabase
           .from("users")
-          .select("id, profilepic")
+          .select("id,username, profilepic")
           .eq("user_id", user.id)
           .single();
 
@@ -70,7 +70,7 @@ const Profile = () => {
           return;
         }
         setProfilePic(profile?.profilepic || null);
-
+        setUsername(profile.username);
         // Fetch whispers for this profile
         const { data, error } = await supabase
           .from("Whispers")
@@ -120,7 +120,7 @@ const Profile = () => {
             className="w-full h-full object-cover"
           />
         </div>
-
+        <div className="text-white font-bold text-xs sm:text-lg font-['Delius']" >{Username}</div>
         <div className="flex flex-wrap justify-center gap-6 md:gap-8 lg:gap-10">
           <div className="flex flex-col items-center">
             <span className="text-2xl md:text-3xl lg:text-4xl font-bold text-white">2k</span>
