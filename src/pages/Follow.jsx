@@ -190,7 +190,7 @@ const Follow = () => {
         </button>
       </div>
 
-      <h2 className="text-2xl md:text-3xl lg:text-4xl text-center mt-6 md:mt-8 text-white font-bold">
+      <h2 className="text-2xl md:text-3xl lg:text-4xl text-center font-['Delius'] mt-6 md:mt-8 text-white font-bold">
         {isCurrentUserProfile
           ? "My Whispers"
           : `${displayedUser.username}'s Whispers`}

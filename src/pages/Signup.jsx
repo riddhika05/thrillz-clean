@@ -44,7 +44,8 @@ const Signup = () => {
 
     // 2. Generate a default avatar
     const username = (email || "").split("@")[0];
-    const avatarUrl = "https://avatar.iran.liara.run/public";
+    const randomNumber = Math.floor(Math.random() * (100 - 20 + 1)) + 20;
+    const avatarUrl = `https://avatar.iran.liara.run/public/${randomNumber}`;
 
     // Fetch the avatar as a blob
     const res = await fetch(avatarUrl);

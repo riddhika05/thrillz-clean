@@ -62,7 +62,7 @@ const Whisper = ({ whisper, containerRef, maxDistance }) => {
     >
       {/* Lock overlay */}
       {isLocked && (
-        <div className="absolute inset-0 bg-white/70 backdrop-blur-sm flex items-center justify-center z-20">
+        <div className="absolute inset-0 bg-white/40 backdrop-blur-sm flex items-center justify-center z-20">
           <span className="text-pink-700 font-bold text-lg">🔒 Unlock to view</span>
         </div>
       )}

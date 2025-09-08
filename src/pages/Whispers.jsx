@@ -20,7 +20,7 @@ const Whispers = () => {
   const [whispers, setWhispers] = useState([]);
   const [error, setError] = useState(null);
   const [userLocation, setUserLocation] = useState({ latitude: null, longitude: null });
-  const maxDistance = 2.5; // hardcoded distance in km
+  const maxDistance = 1.2; // hardcoded distance in km
 
   // Get user location
   useEffect(() => {
