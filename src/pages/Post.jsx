@@ -1,3 +1,5 @@
+// Post.jsx
+
 import React, { useState, useEffect } from "react";
 import musicIcon from "../assets/music.png"; // Ensure this path is correct
 import profileAvatar from "../assets/username.png"; // Ensure this path is correct
@@ -5,6 +7,7 @@ import Whispers from "./Whispers"; // Ensure this path is correct
 import { useNavigate } from "react-router-dom";
 import postBackground from "../assets/post.png"; // Ensure this path is correct
 import { supabase } from "../supabaseClient";
+import { FaGem } from "react-icons/fa"; // Import the gem icon
 
 // Main Post component, now receiving audioRef as a prop
 function Post({ audioRef }) {
@@ -24,10 +27,7 @@ function Header({ audioRef }) {
   const navigate = useNavigate();
   const [isMuted, setIsMuted] = useState(false); // State to track mute status
   const [avatarUrl, setAvatarUrl] = useState(null);
-  const [locationName, setLocationName] = useState(null);
-
   
-
 
   // Effect to synchronize mute state with the audioRef on component mount
   useEffect(() => {
@@ -42,10 +42,12 @@ function Header({ audioRef }) {
       if (authError || !user) return;
       const { data, error } = await supabase
         .from("users")
-        .select("profilepic")
+        .select(`profilepic,points`)
         .eq("user_id", user.id)
         .single();
-      if (!error) setAvatarUrl(data?.profilepic || null);
+      if (!error) 
+        {setAvatarUrl(data?.profilepic || null);
+        }
     }
     loadAvatar();
   }, []);
@@ -69,12 +71,16 @@ function Header({ audioRef }) {
   return (
     <>
       <div className="sticky top-0 left-0 p-4 sm:p-6 md:p-8 flex items-center z-10">
-        <img
-          src={avatarUrl || profileAvatar}
-          alt="Profile Avatar"
-          className="h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 lg:h-20 lg:w-20 cursor-pointer"
-          onClick={handleClick}
-        />
+        <div className="flex flex-col items-center">
+            <img
+              src={avatarUrl || profileAvatar}
+              alt="Profile Avatar"
+              className="h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 lg:h-20 lg:w-20 cursor-pointer"
+              onClick={handleClick}
+            />
+            {/* Responsive points display below the profile picture */}
+        </div>
+      
         <div className="ml-auto flex flex-wrap items-center gap-2 sm:gap-4 md:gap-6 lg:gap-8 text-[#5a4fcf]">
           {/* Music button with mute indicator */}
           <div className="relative cursor-pointer" onClick={toggleMusic}>
