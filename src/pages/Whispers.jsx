@@ -24,6 +24,7 @@ const Whispers = () => {
   const [userLocation, setUserLocation] = useState({ latitude: null, longitude: null });
   const [isLocationLoading, setIsLocationLoading] = useState(true);
   const [userPoints, setUserPoints] = useState(0); 
+  const [unlockedWhisperIds, setUnlockedWhisperIds] = useState([]); // New state for unlocked whisper IDs
   const maxDistance = 1.2; // hardcoded distance in km
 
   // Get user location
@@ -47,26 +48,44 @@ const Whispers = () => {
     }
   }, []);
 
-  // Fetch whispers and user points
+  // Fetch whispers and user points and unlocked whispers
   useEffect(() => {
     async function fetchWhispersAndPoints() {
       if (isLocationLoading) return;
 
       const { data: { user } } = await supabase.auth.getUser();
 
-      // Fetch user's points
-      if (user) {
-          const { data: userData, error: userError } = await supabase
-              .from('users')
-              .select('points')
-              .eq('user_id', user.id)
-              .single();
-          if (!userError) {
-              setUserPoints(userData.points);
-          }
-      }
+     if (user) {
+    // Step 1: Fetch the bigint `id` from the users table using the UUID `user.id`
+    const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, points') // Fetch both id and points in one query
+        .eq('user_id', user.id)
+        .single();
 
-      // Fetch whispers
+    if (userError) {
+        console.error("Error fetching user data:", userError);
+        return; // Exit if user data cannot be fetched
+    }
+
+    const { id, points } = userData;
+    setUserPoints(points);
+
+    // Step 2: Use the fetched bigint `id` to query the unlocked_whispers table
+    const { data: unlockedData, error: unlockedError } = await supabase
+        .from('unlocked_whispers')
+        .select('whisper_id')
+        .eq('user_id', id);
+
+    if (unlockedError) {
+        console.error("Error fetching unlocked whispers:", unlockedError);
+    } else {
+        setUnlockedWhisperIds(unlockedData.map(uw => uw.whisper_id));
+        console.log(unlockedData);
+    }
+}
+
+      // Fetch all whispers
       const { data, error } = await supabase.from("Whispers").select(`
         id,
         content,
@@ -105,9 +124,12 @@ const Whispers = () => {
     fetchWhispersAndPoints();
   }, [userLocation, isLocationLoading]); 
 
-  // New function to handle points update from Whisper component
   const handlePointsUpdate = (newPoints) => {
     setUserPoints(newPoints);
+  };
+  
+  const handleUnlockSuccess = (whisperId) => {
+      setUnlockedWhisperIds(prevIds => [...prevIds, whisperId]);
   };
 
   if (error) return <div>Error: {error}</div>;
@@ -122,7 +144,9 @@ const Whispers = () => {
             whisper={w} 
             maxDistance={maxDistance} 
             userPoints={userPoints}
+            unlocked={unlockedWhisperIds.includes(w.id)} // Pass the unlock status
             onPointsUpdate={handlePointsUpdate}
+            onUnlockSuccess={handleUnlockSuccess}
           />
         </li>
       ))}

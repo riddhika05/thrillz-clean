@@ -1,18 +1,15 @@
-// Whisper.jsx
-
 "use client";
 import { motion, useScroll, useTransform } from "framer-motion";
 import commentIcon from "../assets/comment.png";
 import { useNavigate } from "react-router-dom";
 import { useRef, useState, useEffect } from "react";
 import HeartButton from "../components/heart";
-import { supabase } from "../supabaseClient"; // Import Supabase client
+import { supabase } from "../supabaseClient";
 
-const Whisper = ({ whisper, containerRef, maxDistance, userPoints, onPointsUpdate }) => {
+const Whisper = ({ whisper, containerRef, maxDistance, userPoints, onPointsUpdate, unlocked, onUnlockSuccess }) => {
   const user = whisper.users;
   const ref = useRef(null);
   const [locationName, setLocationName] = useState("");
-  const [isUnlocked, setIsUnlocked] = useState(false); // New state to track if the whisper is unlocked
 
   const { scrollYProgress } = useScroll({
     target: ref,
@@ -53,34 +50,60 @@ const Whisper = ({ whisper, containerRef, maxDistance, userPoints, onPointsUpdat
   }, [whisper.latitude, whisper.longitude]);
 
   // Check if whisper is locked based on distance
-  const isLocked = whisper.distance > maxDistance;
+  const isLockedByDistance = whisper.distance > maxDistance;
+  const isWhisperLocked = isLockedByDistance && !unlocked;
 
   // 🔹 New: Handle unlock logic
   const handleUnlock = async () => {
-    if (userPoints < 2) {
-      alert("You don't have enough points to unlock this whisper. You need 2 points.");
+  if (userPoints < 2) {
+    alert("You don't have enough points to unlock this whisper. You need 2 points.");
+    return;
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // 1. Fetch the user's `bigint` ID from the `users` table using their UUID from auth
+  const { data: userData, error: userFetchError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+
+  if (userFetchError) {
+      console.error("Error fetching user's bigint ID:", userFetchError);
+      alert("Failed to unlock whisper. Please try again.");
       return;
-    }
-    
-    // Deduct points from the user
-    const { data: { user } } = await supabase.auth.getUser();
-    const { error } = await supabase
-        .from('users')
-        .update({ points: userPoints - 2 })
-        .eq('user_id', user.id);
+  }
+  
+  const userIdBigInt = userData.id;
 
-    if (error) {
-        console.error("Error updating points:", error);
-        alert("Failed to unlock whisper. Please try again.");
-        return;
-    }
+  // 2. Deduct points from the user
+  const { error: pointsError } = await supabase
+      .from('users')
+      .update({ points: userPoints - 2 })
+      .eq('user_id', user.id);
 
-    // Mark as unlocked locally and update points in parent component
-    setIsUnlocked(true);
-    onPointsUpdate(userPoints - 2);
-  };
+  if (pointsError) {
+      console.error("Error updating points:", pointsError);
+      alert("Failed to unlock whisper. Please try again.");
+      return;
+  }
 
-  const shouldBeBlurred = isLocked && !isUnlocked;
+  // 3. Insert a record into the unlocked_whispers table using the fetched `bigint` ID
+  const { error: unlockError } = await supabase
+      .from('unlocked_whispers')
+      .insert({ user_id: userIdBigInt, whisper_id: whisper.id });
+
+  if (unlockError) {
+      console.error("Error inserting unlock record:", unlockError);
+      alert("Failed to unlock whisper. Please try again.");
+      return;
+  }
+
+  // Update the parent component's state
+  onPointsUpdate(userPoints - 2);
+  onUnlockSuccess(whisper.id);
+};
 
   return (
     <motion.div
@@ -93,7 +116,7 @@ const Whisper = ({ whisper, containerRef, maxDistance, userPoints, onPointsUpdat
       transition={{ type: "spring", bounce: 0.4 }}
     >
       {/* Lock overlay */}
-      {shouldBeBlurred && (
+      {isWhisperLocked && (
         <div className="absolute inset-0 bg-white/40 backdrop-blur-sm flex items-center justify-center z-20 flex-col">
           <span className="text-pink-700 font-bold text-lg bg-white/70 rounded-sm p-1">🔒 Unlock to view</span>
           <button onClick={handleUnlock} className="mt-2 text-white bg-pink-500 rounded-full px-4 py-2 text-sm font-semibold hover:bg-pink-600 transition-colors">
@@ -108,13 +131,13 @@ const Whisper = ({ whisper, containerRef, maxDistance, userPoints, onPointsUpdat
             <img
               src={user.profilepic}
               alt={user.username}
-              className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-pink-300 ${shouldBeBlurred ? "blur-sm" : ""}`}
+              className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-pink-300 ${isWhisperLocked ? "blur-sm" : ""}`}
             />
             <div
               className="flex flex-col cursor-pointer"
               onClick={handleUserClick}
             >
-              <span className={`text-pink-800 font-semibold text-xs sm:text-sm ${shouldBeBlurred ? "blur-sm" : ""}`}>
+              <span className={`text-pink-800 font-semibold text-xs sm:text-sm ${isWhisperLocked ? "blur-sm" : ""}`}>
                 {user.username}
               </span>
               {locationName && (
@@ -127,7 +150,7 @@ const Whisper = ({ whisper, containerRef, maxDistance, userPoints, onPointsUpdat
         )}
       </div>
 
-      <div className={`mt-2 font-[cursive] text-sm sm:text-[16px] text-[#784552] leading-6 ${shouldBeBlurred ? "blur-sm" : ""}`}>
+      <div className={`mt-2 font-[cursive] text-sm sm:text-[16px] text-[#784552] leading-6 ${isWhisperLocked ? "blur-sm" : ""}`}>
         {whisper.content}
       </div>
 
@@ -136,7 +159,7 @@ const Whisper = ({ whisper, containerRef, maxDistance, userPoints, onPointsUpdat
           <img
             src={whisper.Image_url}
             alt="Whisper"
-            className={`w-40 h-40 object-cover rounded-lg shadow ${shouldBeBlurred ? "blur-sm" : ""}`}
+            className={`w-40 h-40 object-cover rounded-lg shadow ${isWhisperLocked ? "blur-sm" : ""}`}
           />
         </div>
       )}
