@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { signUp } from "../Services/Auth";
 import { supabase } from "../supabaseClient";
@@ -10,6 +10,7 @@ const Signup = () => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
  const handleSignup = async () => {
   if (!email || !password || !confirmPassword) {
@@ -65,7 +66,7 @@ const Signup = () => {
       storedAvatarUrl = supabase.storage.from("avatars").getPublicUrl(storageData.path).publicUrl;
     }
 
-    // 4. Insert into users table
+    // 4. Insert into users table with starting points = 20
     const { error: insertError } = await supabase
       .from("users")
       .insert({
@@ -79,7 +80,12 @@ const Signup = () => {
       console.warn("Could not insert into users table:", insertError.message);
     }
 
-    navigate("/post");
+    // Show welcome modal, then navigate to /post after a short delay
+    setShowWelcomeModal(true);
+    setTimeout(() => {
+      setShowWelcomeModal(false);
+      navigate("/post");
+    }, 2000);
   } catch (err) {
     console.error("Signup error:", err);
     alert("Something went wrong during signup.");
@@ -93,6 +99,15 @@ const Signup = () => {
       className="flex flex-col justify-center items-center h-screen w-full text-center bg-cover bg-center"
       style={{ backgroundImage: `url(${bgd})` }}
     >
+      {showWelcomeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="bg-white p-6 rounded-2xl shadow-2xl text-center max-w-sm mx-4">
+            <div className="text-5xl mb-3">🎉</div>
+            <h2 className="text-xl font-bold text-pink-700">Welcome to Whisper Walls!</h2>
+            <div className="mt-2 text-pink-600 font-semibold">+20 points</div>
+          </div>
+        </div>
+      )}
       <h1 className="font-baloo text-6xl font-bold mb-6 text-[#ffe6cc]">
         Sign Up
       </h1>

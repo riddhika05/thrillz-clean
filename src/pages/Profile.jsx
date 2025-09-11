@@ -20,6 +20,8 @@ const Profile = () => {
   const [profilePic, setProfilePic] = useState(null);
   const [Username, setUsername] = useState(null);
   const [points, setPoints] = useState(20); // New state for points
+  const [followingUsers, setFollowingUsers] = useState([]);
+  const [isFollowingOpen, setIsFollowingOpen] = useState(false);
   const navigate = useNavigate();
 
   // 🔹 Handlers
@@ -93,6 +95,22 @@ const Profile = () => {
         if (error) throw error;
 
         setWhispers(data || []);
+
+        // Fetch users that this profile is following
+        const { data: followingRows, error: followingErr } = await supabase
+          .from("Following")
+          .select("following")
+          .eq("follower", profile.id);
+        if (!followingErr && Array.isArray(followingRows) && followingRows.length) {
+          const followingIds = followingRows.map((r) => r.following);
+          const { data: usersList, error: usersErr } = await supabase
+            .from("users")
+            .select("id, username, profilepic")
+            .in("id", followingIds);
+          if (!usersErr) setFollowingUsers(usersList || []);
+        } else {
+          setFollowingUsers([]);
+        }
       } catch (err) {
         setError(err.message);
       } finally {
@@ -145,7 +163,13 @@ const Profile = () => {
       </div>
 
       {/* Edit Profile Button */}
-      <div className="flex justify-center mt-5">
+      <div className="flex justify-center mt-5 gap-4">
+        <button
+          className="bg-pink-300 text-white font-['Pacifico'] rounded-full px-6 py-2 text-lg md:text-xl lg:text-2xl cursor-pointer"
+          onClick={() => setIsFollowingOpen((p) => !p)}
+        >
+          Following
+        </button>
         <button
           className="bg-pink-300 text-white font-['Pacifico'] rounded-full px-6 py-2 text-lg md:text-xl lg:text-2xl cursor-pointer"
           onClick={handleEdit}
@@ -153,6 +177,31 @@ const Profile = () => {
           Edit Profile
         </button>
       </div>
+
+      {isFollowingOpen && (
+        <div className="mt-4 flex justify-center">
+          {followingUsers.length === 0 ? (
+            <div className="text-white/80">Not following anyone yet.</div>
+          ) : (
+            <div className="w-full max-w-md bg-white/20 backdrop-blur rounded-2xl p-3">
+              <ul className="divide-y divide-white/20">
+                {followingUsers.map((u) => (
+                  <li
+                    key={u.id}
+                    className="py-2 flex items-center gap-3 cursor-pointer hover:bg-white/10 rounded-xl px-2"
+                    onClick={() =>
+                      navigate('/follow', { state: { whisper: { user_id: u.id, users: { username: u.username, profilepic: u.profilepic } } } })
+                    }
+                  >
+                    <img src={u.profilepic} alt={u.username} className="w-8 h-8 rounded-full object-cover border border-white/40" />
+                    <span className="text-white font-semibold">{u.username}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Whispers Section */}
       <h2 className="text-2xl md:text-3xl lg:text-4xl text-center mt-6 md:mt-8 text-white font-bold">
