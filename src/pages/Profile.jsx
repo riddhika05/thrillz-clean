@@ -1,3 +1,5 @@
+// Profile.jsx
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaArrowLeft } from "react-icons/fa";
@@ -7,7 +9,7 @@ import myImage from "../assets/username.png";
 import profileBkg from "../assets/profile_bkg.png";
 import commentIcon from "../assets/comment.png";
 import trashIcon from "../assets/Trash.png";
-import musicIcon from "../assets/music.png"; // 🎵 add this
+import musicIcon from "../assets/music.png"; // 🎵
 
 import DreamyLoader from "../components/loader";
 import HeartButton from "../components/heart";
@@ -17,7 +19,11 @@ const Profile = ({ audioRef }) => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [profilePic, setProfilePic] = useState(null);
-  const [isMuted, setIsMuted] = useState(false); // 🎵 state for mute/unmute
+  const [Username, setUsername] = useState(null);
+  const [points, setPoints] = useState(0);
+  const [followingUsers, setFollowingUsers] = useState([]);
+  const [isFollowingOpen, setIsFollowingOpen] = useState(false);
+  const [isMuted, setIsMuted] = useState(false); // 🎵
 
   const navigate = useNavigate();
 
@@ -68,7 +74,10 @@ const Profile = ({ audioRef }) => {
         setLoading(true);
         setError(null);
 
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
         if (authError || !user) {
           setError(authError?.message || "No logged-in user found");
           return;
@@ -76,7 +85,7 @@ const Profile = ({ audioRef }) => {
 
         const { data: profile, error: profileError } = await supabase
           .from("users")
-          .select("id, profilepic")
+          .select("id, username, profilepic, points")
           .eq("user_id", user.id)
           .single();
 
@@ -85,21 +94,43 @@ const Profile = ({ audioRef }) => {
           return;
         }
         setProfilePic(profile?.profilepic || null);
+        setUsername(profile.username);
+        setPoints(profile.points || 0);
 
+        // Fetch whispers
         const { data, error } = await supabase
           .from("Whispers")
-          .select(`
+          .select(
+            `
             id,
             content,
             user_id,
             Image_url,
             users:user_id (username, gmail, profilepic)
-          `)
+          `
+          )
           .eq("user_id", profile.id);
 
         if (error) throw error;
 
         setWhispers(data || []);
+
+        // Fetch following users
+        const { data: followingRows, error: followingErr } = await supabase
+          .from("Following")
+          .select("following")
+          .eq("follower", profile.id);
+
+        if (!followingErr && Array.isArray(followingRows) && followingRows.length) {
+          const followingIds = followingRows.map((r) => r.following);
+          const { data: usersList, error: usersErr } = await supabase
+            .from("users")
+            .select("id, username, profilepic")
+            .in("id", followingIds);
+          if (!usersErr) setFollowingUsers(usersList || []);
+        } else {
+          setFollowingUsers([]);
+        }
       } catch (err) {
         setError(err.message);
       } finally {
@@ -146,14 +177,20 @@ const Profile = ({ audioRef }) => {
             className="w-full h-full object-cover"
           />
         </div>
-
+        <div className="text-white font-bold text-xs sm:text-lg font-['Delius']">
+          {Username}
+        </div>
         <div className="flex flex-wrap justify-center gap-6 md:gap-8 lg:gap-10">
           <div className="flex flex-col items-center">
-            <span className="text-2xl md:text-3xl lg:text-4xl font-bold text-white">2k</span>
+            <span className="text-2xl md:text-3xl lg:text-4xl font-bold text-white">
+              {points}
+            </span>
             <span className="text-sm md:text-base lg:text-lg text-white">points</span>
           </div>
           <div className="flex flex-col items-center">
-            <span className="text-2xl md:text-3xl lg:text-4xl font-bold text-white">2k</span>
+            <span className="text-2xl md:text-3xl lg:text-4xl font-bold text-white">
+              2k
+            </span>
             <span className="text-sm md:text-base lg:text-lg text-white">likes</span>
           </div>
           <div className="flex flex-col items-center">
@@ -165,8 +202,14 @@ const Profile = ({ audioRef }) => {
         </div>
       </div>
 
-      {/* Edit Profile Button */}
-      <div className="flex justify-center mt-5">
+      {/* Buttons */}
+      <div className="flex justify-center mt-5 gap-4">
+        <button
+          className="bg-pink-300 text-white font-['Pacifico'] rounded-full px-6 py-2 text-lg md:text-xl lg:text-2xl cursor-pointer"
+          onClick={() => setIsFollowingOpen((p) => !p)}
+        >
+          Following
+        </button>
         <button
           className="bg-pink-300 text-white font-['Pacifico'] rounded-full px-6 py-2 text-lg md:text-xl lg:text-2xl cursor-pointer"
           onClick={handleEdit}
@@ -174,6 +217,46 @@ const Profile = ({ audioRef }) => {
           Edit Profile
         </button>
       </div>
+
+      {/* Following List */}
+      {isFollowingOpen && (
+        <div className="mt-4 flex justify-center">
+          {followingUsers.length === 0 ? (
+            <div className="text-white/80">Not following anyone yet.</div>
+          ) : (
+            <div className="w-full max-w-md bg-white/20 backdrop-blur rounded-2xl p-3">
+              <ul className="divide-y divide-white/20">
+                {followingUsers.map((u) => (
+                  <li
+                    key={u.id}
+                    className="py-2 flex items-center gap-3 cursor-pointer hover:bg-white/10 rounded-xl px-2"
+                    onClick={() =>
+                      navigate("/follow", {
+                        state: {
+                          whisper: {
+                            user_id: u.id,
+                            users: {
+                              username: u.username,
+                              profilepic: u.profilepic,
+                            },
+                          },
+                        },
+                      })
+                    }
+                  >
+                    <img
+                      src={u.profilepic}
+                      alt={u.username}
+                      className="w-8 h-8 rounded-full object-cover border border-white/40"
+                    />
+                    <span className="text-white font-semibold">{u.username}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Whispers Section */}
       <h2 className="text-2xl md:text-3xl lg:text-4xl text-center mt-6 md:mt-8 text-white font-bold">
