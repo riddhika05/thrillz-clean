@@ -6,7 +6,7 @@ import { supabase } from "../supabaseClient";
 import axios from "axios";
 
 export default function NewPost() {
-  const [text, setText] = useState("Write your Whisper!");
+  const [text, setText] = useState("");
   const [color, setColor] = useState("#784552");
   const [fontSize, setFontSize] = useState("text-base");
   const [isBold, setIsBold] = useState(false);
@@ -18,17 +18,19 @@ export default function NewPost() {
   const [currentLocation, setCurrentLocation] = useState("Loading location...");
   const [profileId, setProfileId] = useState(null);
   const [showBonusModal, setShowBonusModal] = useState(false);
+  const [bonusPoints, setBonusPoints] = useState(0);
+  const [bonusTitle, setBonusTitle] = useState("");
 
   const navigate = useNavigate();
 
   // Bonus Modal Component
-  const BonusModal = ({ isOpen }) => {
+  const BonusModal = ({ isOpen, title, points }) => {
     useEffect(() => {
       if (isOpen) {
         const timer = setTimeout(() => {
           setShowBonusModal(false);
           navigate("/post"); // navigate after modal closes
-        }, 500); 
+        }, 2000); 
         return () => clearTimeout(timer);
       }
     }, [isOpen]);
@@ -39,10 +41,10 @@ export default function NewPost() {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
         <div className="bg-white p-8 rounded-2xl shadow-2xl text-center max-w-sm mx-4">
           <div className="text-6xl mb-4">🎉</div>
-          <h2 className="text-2xl font-bold text-pink-700 mb-2">First Whisper Bonus!</h2>
+          <h2 className="text-2xl font-bold text-pink-700 mb-2">{title}</h2>
           <div className="flex items-center justify-center gap-2 text-xl text-pink-500 font-semibold mb-4">
             <FaGem className="text-2xl" />
-            <span>+5 Points</span>
+            <span>+{points} Points</span>
           </div>
           <p className="text-gray-600 text-sm">Welcome to the whisper community!</p>
         </div>
@@ -106,13 +108,34 @@ export default function NewPost() {
       const effectiveUserId = profile.id;
       setProfileId(effectiveUserId);
 
-      // Check if this is the first whisper
+      // Get current whisper count for user
       const { data: existingWhispers } = await supabase
         .from("Whispers")
         .select("id")
         .eq("user_id", effectiveUserId);
+      const currentCount = Array.isArray(existingWhispers) ? existingWhispers.length : 0;
 
-      const isFirstWhisper = !existingWhispers || existingWhispers.length === 0;
+      // Determine milestone bonus based on the new total count after this insert
+      const newTotalCount = currentCount + 1;
+      let milestoneBonus = 0;
+      let milestoneTitle = "";
+      if (newTotalCount === 1) {
+        milestoneBonus = 5;
+        milestoneTitle = "First Whisper Bonus!";
+      } else if (newTotalCount === 10) {
+        milestoneBonus = 10;
+        milestoneTitle = "Milestone: 10 Whispers!";
+      } else if (newTotalCount === 50) {
+        milestoneBonus = 30;
+        milestoneTitle = "Milestone: 50 Whispers!";
+      }
+
+      // Show milestone modal immediately if applicable
+      if (milestoneBonus > 0) {
+        setBonusPoints(milestoneBonus);
+        setBonusTitle(milestoneTitle);
+        setShowBonusModal(true);
+      }
 
       // Get live coordinates
       let latitude = null, longitude = null;
@@ -141,18 +164,14 @@ export default function NewPost() {
       ]);
       if (insertError) throw insertError;
 
-      // Award bonus points if first whisper
-      if (isFirstWhisper) {
-        const newPoints = profile.points + 5;
-        const { error: pointsError } = await supabase
+      // If milestone, update points in background and let modal handle navigation
+      if (milestoneBonus > 0) {
+        const newPoints = profile.points + milestoneBonus;
+        await supabase
           .from("users")
           .update({ points: newPoints })
           .eq("user_id", user.id);
-
-        if (!pointsError) {
-          setShowBonusModal(true); // show modal and delay navigation
-          return; // stop here, navigation happens in modal effect
-        }
+        return;
       }
 
       // Otherwise, go to post page immediately
@@ -229,7 +248,7 @@ export default function NewPost() {
 
   return (
     <>
-      <BonusModal isOpen={showBonusModal} />
+      <BonusModal isOpen={showBonusModal} title={bonusTitle} points={bonusPoints} />
       <div
         className="min-h-screen w-full flex flex-col items-center justify-center p-6 bg-cover bg-center relative"
         style={{ backgroundImage: `url(${backgroundImage})` }}
@@ -330,6 +349,7 @@ export default function NewPost() {
                 onChange={(e) => setText(e.target.value)}
                 spellCheck="true"
                 aria-label="Post text"
+                placeholder="Write your Whisper!"
                 style={{ color: color, lineHeight: "1.5" }}
                 ref={textareaRef}
               />
