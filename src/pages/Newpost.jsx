@@ -4,9 +4,10 @@ import { FaArrowLeft, FaGem } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import axios from "axios";
+import musicIcon from "../assets/music.png"; // ✅ Ensure path is correct
 
-export default function NewPost() {
-  const [text, setText] = useState("");
+export default function NewPost({ audioRef }) {
+  const [text, setText] = useState("Write your Whisper!");
   const [color, setColor] = useState("#784552");
   const [fontSize, setFontSize] = useState("text-base");
   const [isBold, setIsBold] = useState(false);
@@ -17,9 +18,26 @@ export default function NewPost() {
   const textareaRef = useRef(null);
   const [currentLocation, setCurrentLocation] = useState("Loading location...");
   const [profileId, setProfileId] = useState(null);
+
+  // 🎉 Bonus modal state
   const [showBonusModal, setShowBonusModal] = useState(false);
   const [bonusPoints, setBonusPoints] = useState(0);
   const [bonusTitle, setBonusTitle] = useState("");
+
+  // 🎵 Music mute state
+  const [isMuted, setIsMuted] = useState(false);
+  useEffect(() => {
+    if (audioRef?.current) {
+      setIsMuted(audioRef.current.muted);
+    }
+  }, [audioRef]);
+
+  const toggleMute = () => {
+    if (!audioRef?.current) return;
+    const newMuteState = !audioRef.current.muted;
+    audioRef.current.muted = newMuteState;
+    setIsMuted(newMuteState);
+  };
 
   const navigate = useNavigate();
 
@@ -30,7 +48,7 @@ export default function NewPost() {
         const timer = setTimeout(() => {
           setShowBonusModal(false);
           navigate("/post"); // navigate after modal closes
-        }, 2000); 
+        }, 2000);
         return () => clearTimeout(timer);
       }
     }, [isOpen]);
@@ -52,6 +70,7 @@ export default function NewPost() {
     );
   };
 
+  // Handle image upload
   const handleImageUpload = (event) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
@@ -63,7 +82,6 @@ export default function NewPost() {
   };
 
   const handleContinue = () => navigate("/post");
-
   const handleColorChange = (event) => setColor(event.target.value);
   const handleFontSize = () =>
     setFontSize(fontSize === "text-base" ? "text-xl" : "text-base");
@@ -75,6 +93,7 @@ export default function NewPost() {
     setFile(null);
   };
 
+  // Upload whisper to Supabase
   const handleUpload = async () => {
     try {
       let imageUrl = null;
@@ -85,19 +104,21 @@ export default function NewPost() {
         const { error: uploadError } = await supabase.storage
           .from("Post_images")
           .upload(fileName, file);
-
         if (uploadError) throw uploadError;
 
         const { data: urlData } = supabase.storage
           .from("Post_images")
           .getPublicUrl(fileName);
-
         imageUrl = urlData.publicUrl;
       }
 
       // Resolve user + profile ID
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) throw new Error(authError?.message || "No logged-in user");
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+      if (authError || !user)
+        throw new Error(authError?.message || "No logged-in user");
 
       const { data: profile, error: profileError } = await supabase
         .from("users")
@@ -105,17 +126,20 @@ export default function NewPost() {
         .eq("user_id", user.id)
         .single();
       if (profileError) throw profileError;
+
       const effectiveUserId = profile.id;
       setProfileId(effectiveUserId);
 
-      // Get current whisper count for user
+      // Get current whisper count
       const { data: existingWhispers } = await supabase
         .from("Whispers")
         .select("id")
         .eq("user_id", effectiveUserId);
-      const currentCount = Array.isArray(existingWhispers) ? existingWhispers.length : 0;
+      const currentCount = Array.isArray(existingWhispers)
+        ? existingWhispers.length
+        : 0;
 
-      // Determine milestone bonus based on the new total count after this insert
+      // Determine milestone
       const newTotalCount = currentCount + 1;
       let milestoneBonus = 0;
       let milestoneTitle = "";
@@ -130,7 +154,6 @@ export default function NewPost() {
         milestoneTitle = "Milestone: 50 Whispers!";
       }
 
-      // Show milestone modal immediately if applicable
       if (milestoneBonus > 0) {
         setBonusPoints(milestoneBonus);
         setBonusTitle(milestoneTitle);
@@ -138,7 +161,8 @@ export default function NewPost() {
       }
 
       // Get live coordinates
-      let latitude = null, longitude = null;
+      let latitude = null,
+        longitude = null;
       if (navigator.geolocation) {
         await new Promise((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(
@@ -164,7 +188,7 @@ export default function NewPost() {
       ]);
       if (insertError) throw insertError;
 
-      // If milestone, update points in background and let modal handle navigation
+      // If milestone, update points
       if (milestoneBonus > 0) {
         const newPoints = profile.points + milestoneBonus;
         await supabase
@@ -174,9 +198,7 @@ export default function NewPost() {
         return;
       }
 
-      // Otherwise, go to post page immediately
       navigate("/post");
-
     } catch (err) {
       console.error("Error uploading whisper:", err.message);
       alert("Upload failed: " + err.message);
@@ -189,8 +211,12 @@ export default function NewPost() {
       try {
         let idToUse = profileId;
         if (!idToUse) {
-          const { data: { user }, error: authError } = await supabase.auth.getUser();
-          if (authError || !user) return setCurrentLocation("Could not fetch location.");
+          const {
+            data: { user },
+            error: authError,
+          } = await supabase.auth.getUser();
+          if (authError || !user)
+            return setCurrentLocation("Could not fetch location.");
 
           const { data: profile } = await supabase
             .from("users")
@@ -220,12 +246,17 @@ export default function NewPost() {
                 );
                 const fetchedLocationName = response.data.display_name;
                 setCurrentLocation(fetchedLocationName);
-                await supabase.from("users").update({ Location: fetchedLocationName }).eq("id", idToUse);
+
+                await supabase
+                  .from("users")
+                  .update({ Location: fetchedLocationName })
+                  .eq("id", idToUse);
               } catch {
                 setCurrentLocation("Location not found.");
               }
             },
-            () => setCurrentLocation("Location access denied or not available.")
+            () =>
+              setCurrentLocation("Location access denied or not available.")
           );
         } else {
           setCurrentLocation(userLocation || "Unknown");
@@ -238,6 +269,7 @@ export default function NewPost() {
     fetchLocation();
   }, []);
 
+  // Keep cursor at end
   useEffect(() => {
     if (textareaRef.current) {
       const end = textareaRef.current.value.length;
@@ -248,23 +280,47 @@ export default function NewPost() {
 
   return (
     <>
-      <BonusModal isOpen={showBonusModal} title={bonusTitle} points={bonusPoints} />
+      <BonusModal
+        isOpen={showBonusModal}
+        title={bonusTitle}
+        points={bonusPoints}
+      />
+
       <div
         className="min-h-screen w-full flex flex-col items-center justify-center p-6 bg-cover bg-center relative"
         style={{ backgroundImage: `url(${backgroundImage})` }}
       >
+        {/* Back button */}
         <div className="absolute top-6 left-6 z-10">
           <FaArrowLeft
             className="text-pink-300 text-3xl cursor-pointer"
             onClick={handleContinue}
           />
         </div>
+
+        {/* 🎵 Music Icon */}
+        <div className="absolute top-6 right-6 z-20">
+          <div className="relative cursor-pointer" onClick={toggleMute}>
+            <img
+              src={musicIcon}
+              alt="Music"
+              className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12"
+            />
+            {isMuted && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-full h-[3px] bg-red-600 rotate-45"></div>
+              </div>
+            )}
+          </div>
+        </div>
+
         <header className="text-center mb-6">
           <h1 className="font-bold text-4xl mb-2 text-white">New Whisper</h1>
           <p className="text-sm opacity-100 text-white font-bold">
             Location - {currentLocation}
           </p>
         </header>
+
         <div className="flex flex-col items-center w-full">
           <section
             className={`w-full max-w-2xl bg-pink-200 border-t border-l border-r border-pink-200 overflow-hidden ${
