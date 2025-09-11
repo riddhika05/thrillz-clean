@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
-import { FaArrowLeft, FaGem } from "react-icons/fa";
+import { FaArrowLeft, FaGem, FaEllipsisV } from "react-icons/fa";
 import profileBkg from "../assets/profile_bkg.png";
 import heartIcon from "../assets/heart.png";
 import commentIcon from "../assets/comment.png";
@@ -19,6 +19,7 @@ function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
+
 const Follow = () => {
   const [whispers, setWhispers] = useState([]);
   const [error, setError] = useState(null);
@@ -32,11 +33,14 @@ const Follow = () => {
   const [userLocation, setUserLocation] = useState({ latitude: null, longitude: null });
   const [isLocationLoading, setIsLocationLoading] = useState(true);
   const [userPoints, setUserPoints] = useState(0);
-  const [currentUserRowId, setCurrentUserRowId] = useState(null); // bigint users.id
+  const [currentUserRowId, setCurrentUserRowId] = useState(null);
   const [unlockedWhisperIds, setUnlockedWhisperIds] = useState([]);
   const maxDistance = 1.2;
   const [isPointsModalOpen, setIsPointsModalOpen] = useState(false);
   const [viewedUserPoints, setViewedUserPoints] = useState(0);
+  const [showMenuDropdown, setShowMenuDropdown] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [isBlockedByOther, setIsBlockedByOther] = useState(false);
 
   // Fetch current auth user and map to profile id, redirect if viewing self
   useEffect(() => {
@@ -69,6 +73,34 @@ const Follow = () => {
     fetchCurrentProfileId();
   }, [navigate, whisper]);
 
+  // Check if users are blocked
+  useEffect(() => {
+    async function checkBlockStatus() {
+      if (!currentUserRowId || !whisper?.user_id) return;
+
+      // Check if current user blocked the viewed user
+      const { data: blockedData } = await supabase
+        .from('Blocked')
+        .select('*')
+        .eq('blocked_by', currentUserRowId)
+        .eq('blocked', whisper.user_id)
+        .maybeSingle();
+      
+      setIsBlocked(!!blockedData);
+
+      // Check if current user is blocked by the viewed user
+      const { data: blockedByData } = await supabase
+        .from('Blocked')
+        .select('*')
+        .eq('blocked_by', whisper.user_id)
+        .eq('blocked', currentUserRowId)
+        .maybeSingle();
+      
+      setIsBlockedByOther(!!blockedByData);
+    }
+    checkBlockStatus();
+  }, [currentUserRowId, whisper]);
+
   // Get user location for distance locking
   useEffect(() => {
     if (navigator.geolocation) {
@@ -87,8 +119,9 @@ const Follow = () => {
   const handleCommentClick = (whisper) => {
     navigate("/comments", { state: { whisper } });
   };
+
   const handleChat = () => {
-    if (!isFollowing) return;
+    if (!isFollowing || isBlocked || isBlockedByOther) return;
     navigate("/chat");
   };
 
@@ -112,9 +145,11 @@ const Follow = () => {
   };
 
   const toggleFollow = async () => {
-    if (!currentUserRowId || !whisper?.user_id) return;
+    if (!currentUserRowId || !whisper?.user_id || isBlocked || isBlockedByOther) return;
+    
     const followerId = currentUserRowId;
     const followingId = whisper.user_id;
+    
     if (!isFollowing) {
       const { error } = await supabase
         .from('Following')
@@ -140,27 +175,109 @@ const Follow = () => {
     }
   };
 
+  const handleBlockUser = async () => {
+    if (!currentUserRowId || !whisper?.user_id) return;
+
+    try {
+      if (!isBlocked) {
+        // Block the user
+        const { error } = await supabase
+          .from('Blocked')
+          .insert({ 
+            blocked: whisper.user_id, 
+            blocked_by: currentUserRowId 
+          });
+        
+        if (!error) {
+          setIsBlocked(true);
+          setIsFollowing(false);
+          // Remove from following if they were following
+          await supabase
+            .from('Following')
+            .delete()
+            .eq('follower', currentUserRowId)
+            .eq('following', whisper.user_id);
+          alert('User has been blocked successfully.');
+        } else {
+          console.error('Block failed:', error);
+          alert('Failed to block user. Please try again.');
+        }
+      } else {
+        // Unblock the user
+        const { error } = await supabase
+          .from('Blocked')
+          .delete()
+          .eq('blocked_by', currentUserRowId)
+          .eq('blocked', whisper.user_id);
+        
+        if (!error) {
+          setIsBlocked(false);
+          alert('User has been unblocked successfully.');
+        } else {
+          console.error('Unblock failed:', error);
+          alert('Failed to unblock user. Please try again.');
+        }
+      }
+      setShowMenuDropdown(false);
+    } catch (error) {
+      console.error('Block/Unblock error:', error);
+      alert('An error occurred. Please try again.');
+    }
+  };
+
+  const handleReportUser = async () => {
+    try {
+      // You can implement a reports table or send to moderation system
+      // For now, just show a confirmation
+      const reportReason = prompt('Please provide a reason for reporting this user:');
+      if (reportReason && reportReason.trim()) {
+        // Here you would typically insert into a Reports table
+        // const { error } = await supabase
+        //   .from('Reports')
+        //   .insert({
+        //     reported_user: whisper.user_id,
+        //     reported_by: currentUserRowId,
+        //     reason: reportReason.trim(),
+        //     created_at: new Date().toISOString()
+        //   });
+        
+        alert('User has been reported. Thank you for helping keep our community safe.');
+      }
+      setShowMenuDropdown(false);
+    } catch (error) {
+      console.error('Report error:', error);
+      alert('Failed to report user. Please try again.');
+    }
+  };
+
   useEffect(() => {
     async function checkFollowing() {
       try {
-        if (!currentUserRowId || !whisper?.user_id) return;
+        if (!currentUserRowId || !whisper?.user_id || isBlocked || isBlockedByOther) {
+          setIsFollowing(false);
+          return;
+        }
         const { data, error } = await supabase
           .from('Following')
           .select('follower')
           .eq('follower', currentUserRowId)
           .eq('following', whisper.user_id)
           .maybeSingle();
-        if (!error && data) setIsFollowing(true);
+        if (!error && data) {
+          setIsFollowing(true);
+        } else {
+          setIsFollowing(false);
+        }
         if (error && error.code !== 'PGRST116') {
-          // PGRST116: No rows found for maybeSingle
           console.warn('checkFollowing error:', error);
         }
       } catch (e) {
         console.warn('checkFollowing exception:', e);
+        setIsFollowing(false);
       }
     }
     checkFollowing();
-  }, [currentUserRowId, whisper]);
+  }, [currentUserRowId, whisper, isBlocked, isBlockedByOther]);
 
   useEffect(() => {
     async function fetchWhispers() {
@@ -186,7 +303,6 @@ const Follow = () => {
       if (error) {
         setError(error.message);
       } else {
-        // compute distance if possible
         const withDistance = data.map((w) => {
           if (!userLocation.latitude || !userLocation.longitude || !w.latitude || !w.longitude) {
             return { ...w, distance: Infinity };
@@ -195,7 +311,7 @@ const Follow = () => {
           return { ...w, distance };
         });
         setWhispers(withDistance);
-        // also fetch viewed user's current points
+        
         const { data: viewedUser, error: pointsErr } = await supabase
           .from('users')
           .select('points')
@@ -245,20 +361,77 @@ const Follow = () => {
 
   const isCurrentUserProfile = whisper && currentProfileId && whisper.user_id === currentProfileId;
 
-  // 🚨 Prevent rendering anything while redirecting
+  // Prevent rendering anything while redirecting
   if (isCurrentUserProfile) return null;
+
+  // Show blocked message if user is blocked by the other user
+  if (isBlockedByOther) {
+    return (
+      <div
+        className="min-h-screen bg-cover bg-center bg-no-repeat flex items-center justify-center"
+        style={{ backgroundImage: `url(${profileBkg})` }}
+      >
+        <div className="bg-white/90 p-8 rounded-lg shadow-lg text-center">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">Access Restricted</h2>
+          <p className="text-gray-600 mb-6">You cannot view this profile.</p>
+          <button
+            onClick={() => navigate("/post")}
+            className="bg-pink-500 text-white px-6 py-2 rounded-full hover:bg-pink-600 transition-colors"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
       className="min-h-screen bg-cover bg-center bg-no-repeat"
       style={{ backgroundImage: `url(${profileBkg})` }}
     >
-      <div className="flex justify-between p-4 md:p-6 lg:p-8">
+      <div className="flex justify-between items-center p-4 md:p-6 lg:p-8">
         <FaArrowLeft
           className="text-pink-300 text-3xl cursor-pointer"
           onClick={handleContinue}
         />
+        
+        {/* Three dots menu - only show if not current user's profile */}
+        {!isCurrentUserProfile && (
+          <div className="relative">
+            <FaEllipsisV
+              className="text-pink-300 text-2xl cursor-pointer hover:text-pink-400 transition-colors"
+              onClick={() => setShowMenuDropdown(!showMenuDropdown)}
+            />
+            
+            {/* Dropdown Menu */}
+            {showMenuDropdown && (
+              <div className="absolute right-0 top-8 bg-white rounded-lg shadow-lg py-2 w-40 z-50">
+                <button
+                  onClick={handleBlockUser}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors text-gray-700"
+                >
+                  {isBlocked ? '🔓 Unblock User' : '🚫 Block User'}
+                </button>
+                <button
+                  onClick={handleReportUser}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors text-red-600"
+                >
+                  🚩 Report User
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Click outside to close dropdown */}
+      {showMenuDropdown && (
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={() => setShowMenuDropdown(false)}
+        />
+      )}
 
       <div className="flex flex-col items-center gap-5 mt-5">
         <div className="w-32 h-32 md:w-40 md:h-40 lg:w-48 lg:h-48 rounded-full overflow-hidden border-4 border-pink-300">
@@ -311,19 +484,24 @@ const Follow = () => {
           </button>
         ) : (
           <button
-            className="bg-pink-300 text-white font-['Pacifico'] rounded-full px-6 py-2 text-lg md:text-xl lg:text-2xl cursor-pointer"
+            className={`bg-pink-300 text-white font-['Pacifico'] rounded-full px-6 py-2 text-lg md:text-xl lg:text-2xl ${
+              isBlocked || isBlockedByOther ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+            }`}
             onClick={toggleFollow}
+            disabled={isBlocked || isBlockedByOther}
           >
-            {isFollowing ? "Following" : "Follow"}
-            {showConfetti && (
+            {isBlocked ? "Blocked" : isFollowing ? "Following" : "Follow"}
+            {showConfetti && !isBlocked && (
               <Confetti width={width} height={height} numberOfPieces={300} />
             )}
           </button>
         )}
         <button
-          className={`bg-pink-300 text-white font-['Pacifico'] rounded-full px-6 py-2 text-lg md:text-xl lg:text-2xl ${isFollowing ? 'cursor-pointer opacity-100' : 'cursor-not-allowed opacity-60'}`}
+          className={`bg-pink-300 text-white font-['Pacifico'] rounded-full px-6 py-2 text-lg md:text-xl lg:text-2xl ${
+            isFollowing && !isBlocked && !isBlockedByOther ? 'cursor-pointer opacity-100' : 'cursor-not-allowed opacity-60'
+          }`}
           onClick={handleChat}
-          disabled={!isFollowing}
+          disabled={!isFollowing || isBlocked || isBlockedByOther}
         >
           Chat
         </button>
@@ -418,7 +596,6 @@ const Follow = () => {
           </div>
         </div>
       )}
-
     </div>
   );
 };
