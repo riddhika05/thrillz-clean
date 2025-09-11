@@ -41,62 +41,115 @@ const Follow = () => {
   const [showMenuDropdown, setShowMenuDropdown] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
   const [isBlockedByOther, setIsBlockedByOther] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [selectedReportCategory, setSelectedReportCategory] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Safety check - redirect if no whisper data
+  useEffect(() => {
+    if (!whisper) {
+      console.warn('No whisper data found in location state, redirecting to post page');
+      navigate("/post");
+      return;
+    }
+    setIsLoading(false);
+  }, [whisper, navigate]);
 
   // Fetch current auth user and map to profile id, redirect if viewing self
   useEffect(() => {
     async function fetchCurrentProfileId() {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) return;
-      const { data, error } = await supabase
-        .from("users")
-        .select("id, points")
-        .eq("user_id", user.id)
-        .single();
-      if (!error && data?.id) {
-        setCurrentProfileId(data.id);
-        setCurrentUserRowId(data.id);
-        setUserPoints(data.points || 0);
-        if (whisper && whisper.user_id === data.id) {
-          navigate("/profile");
+      try {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError) {
+          console.error('Auth error:', authError);
+          return;
+        }
+        
+        if (!user) {
+          console.warn('No authenticated user found');
+          return;
         }
 
-        // Fetch unlocked whispers for this user
-        const { data: unlockedData } = await supabase
-          .from('unlocked_whispers')
-          .select('whisper_id')
-          .eq('user_id', data.id);
-        if (Array.isArray(unlockedData)) {
-          setUnlockedWhisperIds(unlockedData.map(u => u.whisper_id));
+        const { data, error } = await supabase
+          .from("users")
+          .select("id, points")
+          .eq("user_id", user.id)
+          .single();
+          
+        if (error) {
+          console.error('Error fetching user profile:', error);
+          return;
         }
+        
+        if (data && data.id) {
+          setCurrentProfileId(data.id);
+          setCurrentUserRowId(data.id);
+          setUserPoints(data.points || 0);
+          
+          // Safety check before accessing whisper properties
+          if (whisper && whisper.user_id === data.id) {
+            navigate("/profile");
+            return;
+          }
+
+          // Fetch unlocked whispers for this user
+          try {
+            const { data: unlockedData } = await supabase
+              .from('unlocked_whispers')
+              .select('whisper_id')
+              .eq('user_id', data.id);
+            if (Array.isArray(unlockedData)) {
+              setUnlockedWhisperIds(unlockedData.map(u => u.whisper_id));
+            }
+          } catch (unlockedError) {
+            console.warn('Error fetching unlocked whispers:', unlockedError);
+          }
+        }
+      } catch (error) {
+        console.error('Unexpected error in fetchCurrentProfileId:', error);
       }
     }
-    fetchCurrentProfileId();
-  }, [navigate, whisper]);
+    
+    if (!isLoading && whisper) {
+      fetchCurrentProfileId();
+    }
+  }, [navigate, whisper, isLoading]);
 
   // Check if users are blocked
   useEffect(() => {
     async function checkBlockStatus() {
-      if (!currentUserRowId || !whisper?.user_id) return;
+      if (!currentUserRowId || !whisper || !whisper.user_id) return;
 
-      // Check if current user blocked the viewed user
-      const { data: blockedData } = await supabase
-        .from('Blocked')
-        .select('*')
-        .eq('blocked_by', currentUserRowId)
-        .eq('blocked', whisper.user_id)
-        .maybeSingle();
-      
-      setIsBlocked(!!blockedData);
+      try {
+        // Check if current user blocked the viewed user
+        const { data: blockedData, error: blockedError } = await supabase
+          .from('Blocked')
+          .select('*')
+          .eq('blocked_by', currentUserRowId)
+          .eq('blocked', whisper.user_id)
+          .maybeSingle();
+        
+        if (blockedError && blockedError.code !== 'PGRST116') {
+          console.error('Error checking blocked status:', blockedError);
+        }
+        setIsBlocked(!!blockedData);
 
-      // Check if current user is blocked by the viewed user
-      const { data: blockedByData } = await supabase
-        .from('Blocked')
-        .select('*')
-        .eq('blocked_by', whisper.user_id)
-        .eq('blocked', currentUserRowId)
-        .maybeSingle();
-      
-      setIsBlockedByOther(!!blockedByData);
+        // Check if current user is blocked by the viewed user
+        const { data: blockedByData, error: blockedByError } = await supabase
+          .from('Blocked')
+          .select('*')
+          .eq('blocked_by', whisper.user_id)
+          .eq('blocked', currentUserRowId)
+          .maybeSingle();
+        
+        if (blockedByError && blockedByError.code !== 'PGRST116') {
+          console.error('Error checking blocked by status:', blockedByError);
+        }
+        setIsBlockedByOther(!!blockedByData);
+      } catch (error) {
+        console.error('Block status check failed:', error);
+      }
     }
     checkBlockStatus();
   }, [currentUserRowId, whisper]);
@@ -106,7 +159,10 @@ const Follow = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setUserLocation({ latitude: position.coords.latitude, longitude: position.coords.longitude });
+          setUserLocation({ 
+            latitude: position.coords.latitude, 
+            longitude: position.coords.longitude 
+          });
           setIsLocationLoading(false);
         },
         () => setIsLocationLoading(false)
@@ -116,8 +172,10 @@ const Follow = () => {
     }
   }, []);
 
-  const handleCommentClick = (whisper) => {
-    navigate("/comments", { state: { whisper } });
+  const handleCommentClick = (whisperData) => {
+    if (whisperData) {
+      navigate("/comments", { state: { whisper: whisperData } });
+    }
   };
 
   const handleChat = () => {
@@ -145,38 +203,42 @@ const Follow = () => {
   };
 
   const toggleFollow = async () => {
-    if (!currentUserRowId || !whisper?.user_id || isBlocked || isBlockedByOther) return;
+    if (!currentUserRowId || !whisper || !whisper.user_id || isBlocked || isBlockedByOther) return;
     
     const followerId = currentUserRowId;
     const followingId = whisper.user_id;
     
-    if (!isFollowing) {
-      const { error } = await supabase
-        .from('Following')
-        .insert({ follower: followerId, following: followingId });
-      if (!error) {
-        setIsFollowing(true);
-        setShowConfetti(true);
-        setTimeout(() => setShowConfetti(false), 6000);
+    try {
+      if (!isFollowing) {
+        const { error } = await supabase
+          .from('Following')
+          .insert({ follower: followerId, following: followingId });
+        if (!error) {
+          setIsFollowing(true);
+          setShowConfetti(true);
+          setTimeout(() => setShowConfetti(false), 6000);
+        } else {
+          console.error('Follow failed:', error);
+        }
       } else {
-        console.error('Follow failed:', error);
+        const { error } = await supabase
+          .from('Following')
+          .delete()
+          .eq('follower', followerId)
+          .eq('following', followingId);
+        if (!error) {
+          setIsFollowing(false);
+        } else {
+          console.error('Unfollow failed:', error);
+        }
       }
-    } else {
-      const { error } = await supabase
-        .from('Following')
-        .delete()
-        .eq('follower', followerId)
-        .eq('following', followingId);
-      if (!error) {
-        setIsFollowing(false);
-      } else {
-        console.error('Unfollow failed:', error);
-      }
+    } catch (error) {
+      console.error('Toggle follow error:', error);
     }
   };
 
   const handleBlockUser = async () => {
-    if (!currentUserRowId || !whisper?.user_id) return;
+    if (!currentUserRowId || !whisper || !whisper.user_id) return;
 
     try {
       if (!isBlocked) {
@@ -226,34 +288,55 @@ const Follow = () => {
   };
 
   const handleReportUser = async () => {
+    setIsReportModalOpen(true);
+    setShowMenuDropdown(false);
+  };
+
+  const submitReport = async () => {
     try {
-      // You can implement a reports table or send to moderation system
-      // For now, just show a confirmation
-      const reportReason = prompt('Please provide a reason for reporting this user:');
-      if (reportReason && reportReason.trim()) {
-        // Here you would typically insert into a Reports table
-        // const { error } = await supabase
-        //   .from('Reports')
-        //   .insert({
-        //     reported_user: whisper.user_id,
-        //     reported_by: currentUserRowId,
-        //     reason: reportReason.trim(),
-        //     created_at: new Date().toISOString()
-        //   });
-        
-        alert('User has been reported. Thank you for helping keep our community safe.');
+      if (!selectedReportCategory || !reportReason.trim()) {
+        alert('Please select a category and provide a reason for reporting.');
+        return;
       }
-      setShowMenuDropdown(false);
+
+      // Here you would typically insert into a Reports table
+      // const { error } = await supabase
+      //   .from('Reports')
+      //   .insert({
+      //     reported_user: whisper.user_id,
+      //     reported_by: currentUserRowId,
+      //     category: selectedReportCategory,
+      //     reason: reportReason.trim(),
+      //     created_at: new Date().toISOString()
+      //   });
+
+      console.log('Report submitted:', {
+        reported_user: whisper ? whisper.user_id : null,
+        reported_by: currentUserRowId,
+        category: selectedReportCategory,
+        reason: reportReason.trim()
+      });
+
+      setIsReportModalOpen(false);
+      setReportReason('');
+      setSelectedReportCategory('');
+      alert('User has been reported. Thank you for helping keep our community safe.');
     } catch (error) {
       console.error('Report error:', error);
       alert('Failed to report user. Please try again.');
     }
   };
 
+  const closeReportModal = () => {
+    setIsReportModalOpen(false);
+    setReportReason('');
+    setSelectedReportCategory('');
+  };
+
   useEffect(() => {
     async function checkFollowing() {
       try {
-        if (!currentUserRowId || !whisper?.user_id || isBlocked || isBlockedByOther) {
+        if (!currentUserRowId || !whisper || !whisper.user_id || isBlocked || isBlockedByOther) {
           setIsFollowing(false);
           return;
         }
@@ -281,45 +364,56 @@ const Follow = () => {
 
   useEffect(() => {
     async function fetchWhispers() {
-      const userId = whisper ? whisper.user_id : null;
+      if (!whisper || !whisper.user_id) return;
 
-      if (!userId) return;
+      const userId = whisper.user_id;
 
-      const { data, error } = await supabase
-        .from("Whispers")
-        .select(
+      try {
+        const { data, error } = await supabase
+          .from("Whispers")
+          .select(
+            `
+            id,
+            content,
+            user_id,
+            Image_url,
+            latitude,
+            longitude,
+            users:user_id (username, gmail, profilepic)
           `
-          id,
-          content,
-          user_id,
-          Image_url,
-          latitude,
-          longitude,
-          users:user_id (username, gmail, profilepic)
-        `
-        )
-        .eq("user_id", userId);
+          )
+          .eq("user_id", userId);
 
-      if (error) {
-        setError(error.message);
-      } else {
-        const withDistance = data.map((w) => {
-          if (!userLocation.latitude || !userLocation.longitude || !w.latitude || !w.longitude) {
-            return { ...w, distance: Infinity };
+        if (error) {
+          setError(error.message);
+        } else {
+          const withDistance = data.map((w) => {
+            if (!userLocation.latitude || !userLocation.longitude || !w.latitude || !w.longitude) {
+              return { ...w, distance: Infinity };
+            }
+            const distance = getDistanceFromLatLonInKm(
+              userLocation.latitude, 
+              userLocation.longitude, 
+              w.latitude, 
+              w.longitude
+            );
+            return { ...w, distance };
+          });
+          setWhispers(withDistance);
+          
+          // Fetch viewed user's current points
+          const { data: viewedUser, error: pointsErr } = await supabase
+            .from('users')
+            .select('points')
+            .eq('id', userId)
+            .single();
+          if (!pointsErr && viewedUser) {
+            setViewedUserPoints(viewedUser.points || 0);
           }
-          const distance = getDistanceFromLatLonInKm(userLocation.latitude, userLocation.longitude, w.latitude, w.longitude);
-          return { ...w, distance };
-        });
-        setWhispers(withDistance);
-        
-        const { data: viewedUser, error: pointsErr } = await supabase
-          .from('users')
-          .select('points')
-          .eq('id', userId)
-          .single();
-        if (!pointsErr && viewedUser) {
-          setViewedUserPoints(viewedUser.points || 0);
         }
+      } catch (error) {
+        console.error('Error fetching whispers:', error);
+        setError('Failed to load whispers.');
       }
     }
     fetchWhispers();
@@ -334,6 +428,8 @@ const Follow = () => {
       }
 
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       const newPoints = userPoints - 2;
       const { error: pointsError } = await supabase
         .from('users')
@@ -355,11 +451,45 @@ const Follow = () => {
     }
   };
 
-  const displayedUser = whisper
-    ? whisper.users
-    : { username: "Guest User", profilepic: "placeholder_url", whispers: 0 };
+  const displayedUser = (whisper && whisper.users) ? whisper.users : { 
+    username: "Guest User", 
+    profilepic: "placeholder_url"
+  };
 
   const isCurrentUserProfile = whisper && currentProfileId && whisper.user_id === currentProfileId;
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div
+        className="min-h-screen bg-cover bg-center bg-no-repeat flex items-center justify-center"
+        style={{ backgroundImage: `url(${profileBkg})` }}
+      >
+        <DreamyLoader />
+      </div>
+    );
+  }
+
+  // Safety check - if no whisper data after loading, show error
+  if (!whisper) {
+    return (
+      <div
+        className="min-h-screen bg-cover bg-center bg-no-repeat flex items-center justify-center"
+        style={{ backgroundImage: `url(${profileBkg})` }}
+      >
+        <div className="bg-white/90 p-8 rounded-lg shadow-lg text-center">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">Profile Not Found</h2>
+          <p className="text-gray-600 mb-6">Unable to load the requested profile.</p>
+          <button
+            onClick={() => navigate("/post")}
+            className="bg-pink-500 text-white px-6 py-2 rounded-full hover:bg-pink-600 transition-colors"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Prevent rendering anything while redirecting
   if (isCurrentUserProfile) return null;
@@ -436,13 +566,12 @@ const Follow = () => {
       <div className="flex flex-col items-center gap-5 mt-5">
         <div className="w-32 h-32 md:w-40 md:h-40 lg:w-48 lg:h-48 rounded-full overflow-hidden border-4 border-pink-300">
           <img
-            src={
-              isCurrentUserProfile
-                ? "/path/to/myImage.png"
-                : displayedUser.profilepic
-            }
+            src={displayedUser.profilepic || "/path/to/default/profile.png"}
             alt="Profile"
             className="w-full h-full object-cover"
+            onError={(e) => {
+              e.target.src = "/path/to/default/profile.png";
+            }}
           />
         </div>
 
@@ -514,37 +643,43 @@ const Follow = () => {
       </h2>
 
       <div className="flex flex-wrap justify-center gap-4 md:gap-1 lg:gap-4 mt-4">
-        {error && <div className="text-red-500">{error}</div>}
+        {error && <div className="text-red-500 bg-white p-4 rounded-lg mx-4">{error}</div>}
         {whispers.length === 0 && !error && (
           <DreamyLoader/>
         )}
-        {whispers.map((whisper) => {
-          const isLockedByDistance = (whisper.distance ?? Infinity) > maxDistance;
-          const isUnlocked = unlockedWhisperIds.includes(whisper.id);
+        {whispers.map((whisperData) => {
+          const isLockedByDistance = (whisperData.distance ?? Infinity) > maxDistance;
+          const isUnlocked = unlockedWhisperIds.includes(whisperData.id);
           const isLocked = isLockedByDistance && !isUnlocked;
           return (
           <div
-            key={whisper.id}
+            key={whisperData.id}
             className="relative w-11/12 max-w-lg mx-auto rounded-3xl shadow-lg bg-pink-100 py-4 px-6 sm:py-6 sm:px-8 mb-3 sm:mb-4"
           >
             {isLocked && (
               <div className="absolute inset-0 bg-white/40 backdrop-blur-sm flex items-center justify-center z-20 flex-col rounded-3xl">
                 <span className="text-pink-700 font-bold text-lg bg-white/70 rounded-sm p-1">🔒 Unlock to view</span>
-                <button onClick={() => handleUnlock(whisper.id)} className="mt-2 text-white bg-pink-500 rounded-full px-4 py-2 text-sm font-semibold hover:bg-pink-600 transition-colors">
+                <button 
+                  onClick={() => handleUnlock(whisperData.id)} 
+                  className="mt-2 text-white bg-pink-500 rounded-full px-4 py-2 text-sm font-semibold hover:bg-pink-600 transition-colors"
+                >
                   Unlock (2 pts)
                 </button>
               </div>
             )}
 
             <div className={`mt-2 font-[cursive] text-sm sm:text-[16px] text-[#784552] leading-6 ${isLocked ? "blur-sm" : ""}`}>
-              {whisper.content}
+              {whisperData.content}
             </div>
-            {whisper.Image_url && (
+            {whisperData.Image_url && (
               <div className="mt-2 flex justify-center">
                 <img
-                  src={whisper.Image_url}
+                  src={whisperData.Image_url}
                   alt="Whisper"
                   className={`w-40 h-40 object-cover rounded-lg shadow ${isLocked ? "blur-sm" : ""}`}
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                  }}
                 />
               </div>
             )}
@@ -553,7 +688,7 @@ const Follow = () => {
                 <HeartButton/>
               </button>
               <button
-                onClick={() => handleCommentClick(whisper)}
+                onClick={() => handleCommentClick(whisperData)}
                 className="hover:scale-110 transition-transform"
               >
                 <img
@@ -565,7 +700,7 @@ const Follow = () => {
               {isCurrentUserProfile && (
                 <button
                   className="hover:scale-110 transition-transform"
-                  onClick={() => handleDelete(whisper.id)}
+                  onClick={() => handleDelete(whisperData.id)}
                 >
                   <img
                     src={trashIcon}
@@ -593,6 +728,99 @@ const Follow = () => {
             >
               Close
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Report User Modal */}
+      {isReportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                🚩 Report User
+              </h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Help us keep the community safe by reporting inappropriate behavior.
+              </p>
+            </div>
+
+            {/* Modal Content */}
+            <div className="px-6 py-4 space-y-4">
+              {/* Report Categories */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Why are you reporting this user? *
+                </label>
+                <div className="space-y-2">
+                  {[
+                    { value: 'harassment', label: '🚫 Harassment or bullying' },
+                    { value: 'inappropriate_content', label: '⚠️ Inappropriate content' },
+                    { value: 'spam', label: '📧 Spam or unwanted messages' },
+                    { value: 'fake_profile', label: '👤 Fake or impersonated profile' },
+                    { value: 'hate_speech', label: '💬 Hate speech or discrimination' },
+                    { value: 'violence', label: '⚔️ Threats or violence' },
+                    { value: 'other', label: '📝 Other (please specify)' }
+                  ].map((category) => (
+                    <label key={category.value} className="flex items-center cursor-pointer">
+                      <input
+                        type="radio"
+                        name="reportCategory"
+                        value={category.value}
+                        checked={selectedReportCategory === category.value}
+                        onChange={(e) => setSelectedReportCategory(e.target.value)}
+                        className="mr-3 text-pink-500 focus:ring-pink-400"
+                      />
+                      <span className="text-sm text-gray-700">{category.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Additional Details */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Additional details *
+                </label>
+                <textarea
+                  value={reportReason}
+                  onChange={(e) => setReportReason(e.target.value)}
+                  placeholder="Please provide specific details about why you're reporting this user..."
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-400 focus:border-transparent resize-none"
+                  rows="4"
+                  maxLength="500"
+                />
+                <div className="text-right text-xs text-gray-500 mt-1">
+                  {reportReason.length}/500 characters
+                </div>
+              </div>
+
+              {/* Privacy Notice */}
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <p className="text-xs text-gray-600">
+                  <span className="font-semibold">Privacy Notice:</span> Your report will be reviewed by our moderation team. 
+                  Reports are kept confidential and the reported user will not know who submitted the report.
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-gray-200 flex gap-3 justify-end">
+              <button
+                onClick={closeReportModal}
+                className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitReport}
+                disabled={!selectedReportCategory || !reportReason.trim()}
+                className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium flex items-center gap-2"
+              >
+                🚩 Submit Report
+              </button>
+            </div>
           </div>
         </div>
       )}
