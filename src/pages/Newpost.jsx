@@ -7,7 +7,7 @@ import axios from "axios";
 import musicIcon from "../assets/music.png"; // ✅ Ensure path is correct
 
 export default function NewPost({ audioRef }) {
-  const [text, setText] = useState("Write your Whisper!");
+  const [text, setText] = useState("");
   const [color, setColor] = useState("#784552");
   const [fontSize, setFontSize] = useState("text-base");
   const [isBold, setIsBold] = useState(false);

@@ -7,7 +7,7 @@ import Whispers from "./Whispers"; // Ensure this path is correct
 import { useNavigate } from "react-router-dom";
 import postBackground from "../assets/post.png"; // Ensure this path is correct
 import { supabase } from "../supabaseClient";
-import { FaGem } from "react-icons/fa"; // Import the gem icon
+import { FaGem, FaBell } from "react-icons/fa"; // Import the gem and bell icons
 
 // Main Post component, now receiving audioRef as a prop
 function Post({ audioRef }) {
@@ -27,6 +27,7 @@ function Header({ audioRef }) {
   const navigate = useNavigate();
   const [isMuted, setIsMuted] = useState(false); // State to track mute status
   const [avatarUrl, setAvatarUrl] = useState(null);
+  const [points, setPoints] = useState(0);
   
 
   // Effect to synchronize mute state with the audioRef on component mount
@@ -45,9 +46,10 @@ function Header({ audioRef }) {
         .select(`profilepic,points`)
         .eq("user_id", user.id)
         .single();
-      if (!error) 
-        {setAvatarUrl(data?.profilepic || null);
-        }
+      if (!error) {
+        setAvatarUrl(data?.profilepic || null);
+        setPoints(data?.points || 0);
+      }
     }
     loadAvatar();
   }, []);
@@ -58,6 +60,10 @@ function Header({ audioRef }) {
 
   function handleAddPost() {
     navigate("/newpost");
+  }
+
+  function handleNotificationClick() {
+    navigate("/notif");
   }
 
   // Function to toggle music mute state
@@ -78,7 +84,11 @@ function Header({ audioRef }) {
               className="h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 lg:h-20 lg:w-20 cursor-pointer"
               onClick={handleClick}
             />
-            {/* Responsive points display below the profile picture */}
+            {/* Points display below the profile picture */}
+            <div className="flex items-center gap-1 mt-1">
+              <FaGem className="text-pink-300 text-xl" />
+              <span className="text-pink-300 text-xl">{points}</span>
+            </div>
         </div>
       
         <div className="ml-auto flex flex-wrap items-center gap-2 sm:gap-4 md:gap-6 lg:gap-8 text-[#5a4fcf]">
@@ -94,6 +104,11 @@ function Header({ audioRef }) {
                 <div className="w-full h-[3px] bg-red-600 rotate-45"></div>
               </div>
             )}
+          </div>
+
+          {/* Notification bell */}
+          <div className="cursor-pointer" onClick={handleNotificationClick}>
+            <FaBell className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 text-pink-300 hover:text-pink-500 transition-colors" />
           </div>
 
           <Explore />
