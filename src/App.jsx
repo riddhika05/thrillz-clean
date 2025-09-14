@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-
+import Notification from "./pages/Notification";
 import Home from "./pages/Home";
 import Post from "./pages/Post";
 import Map from "./pages/Map";
@@ -59,9 +59,10 @@ function App() {
         <Route path="/comments" element={<Comments audioRef={audioRef} />} />
         <Route path="/newpost" element={<Newpost  audioRef={audioRef}/>}/>
         <Route path="/follow" element={<Follow />} />
-         <Route path="/signup" element={<Signup />} />
-          <Route path="/login" element={<Login />} />
-            <Route path="/Map" element={<Comments audioRef={audioRef} />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/Map" element={<Comments audioRef={audioRef} />} />
+         <Route path="/notif" element={<Notification />} />
       </Routes>
     </Router>
   );

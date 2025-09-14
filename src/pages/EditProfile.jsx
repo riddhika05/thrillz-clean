@@ -213,7 +213,7 @@ const EditProfile = ({ audioRef }) => {
         </button>
 
         {/* music toggle */}
-        <div className="relative cursor-pointer mr-3" onClick={toggleMusic}>
+        <div className="music" onClick={toggleMusic}>
           <img
             src={musicIcon}
             alt="Music"

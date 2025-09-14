@@ -390,10 +390,17 @@
   opacity: 0.9;
 }
 
-.music {
+/* .music{
   position: absolute;
-  right: 20px;
-}
+  right:20
+} */
+.music
+  {
+    position: relative;
+    left: 500px;
+    bottom:55px
+  }
+
 
 /* -------------------------
    RESPONSIVE MEDIA QUERIES
@@ -422,13 +429,13 @@
     width: 100px;
     height: 100px;
   }
-  
-  .trigger-input-container {
-    width: 100%;
-  }
-  
-  .trigger-words-section {
-    padding: 15px;
+
+  .music
+  {
+    position: relative;
+    left: 200px;
+    bottom:55px
+
   }
 }
 
@@ -491,6 +498,12 @@
   .profanity-help-text {
     font-size: 11px;
   }
+   .music
+  {
+    position: relative;
+    left: 50px;
+    bottom:60px
+  }
 }
 
 /* Extra Small Phones (<= 400px) */
@@ -525,6 +538,11 @@
     width: 70px;
     height: 70px;
   }
+  .music
+  {
+    position: relative;
+    left: 20px;
+    top:10px;
   
   .trigger-word {
     font-size: 11px;
@@ -549,4 +567,5 @@
   .profanity-help-text {
     font-size: 10px;
   }
+}
 }
