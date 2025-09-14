@@ -1,12 +1,13 @@
-// Whispers.jsx
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from "../supabaseClient";
 import Whisper from "./Whisper";
 import DreamyLoader from '../components/loader';
+import ContentFilter from '../utils/contentFilter';
+
+const contentFilter = new ContentFilter();
 
 function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
-  const R = 6371; // Earth radius in km
+  const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
@@ -23,11 +24,13 @@ const Whispers = () => {
   const [error, setError] = useState(null);
   const [userLocation, setUserLocation] = useState({ latitude: null, longitude: null });
   const [isLocationLoading, setIsLocationLoading] = useState(true);
-  const [userPoints, setUserPoints] = useState(0); 
-  const [unlockedWhisperIds, setUnlockedWhisperIds] = useState([]); // New state for unlocked whisper IDs
-  const maxDistance = 1.2; // hardcoded distance in km
+  const [userPoints, setUserPoints] = useState(0);
+  const [unlockedWhisperIds, setUnlockedWhisperIds] = useState([]);
+  const [userPreferences, setUserPreferences] = useState({ trigger_words: [], profanity_filter: true });
+  const [filteredCount, setFilteredCount] = useState(0);
+  
+  const maxDistance = 1.2;
 
-  // Get user location
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -48,44 +51,54 @@ const Whispers = () => {
     }
   }, []);
 
-  // Fetch whispers and user points and unlocked whispers
   useEffect(() => {
     async function fetchWhispersAndPoints() {
       if (isLocationLoading) return;
 
       const { data: { user } } = await supabase.auth.getUser();
+      
+      // 🔥 Use local variable instead of state for immediate filtering
+      let currentUserPreferences = { trigger_words: [], profanity_filter: true };
 
-     if (user) {
-    // Step 1: Fetch the bigint `id` from the users table using the UUID `user.id`
-    const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id, points') // Fetch both id and points in one query
-        .eq('user_id', user.id)
-        .single();
+      if (user) {
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('id, points, trigger_words, profanity_filter')
+          .eq('user_id', user.id)
+          .single();
 
-    if (userError) {
-        console.error("Error fetching user data:", userError);
-        return; // Exit if user data cannot be fetched
-    }
+        if (userError) {
+          console.error("Error fetching user data:", userError);
+          return;
+        }
 
-    const { id, points } = userData;
-    setUserPoints(points);
+        const { id, points, trigger_words, profanity_filter } = userData;
+        setUserPoints(points);
+        
+        // 🔥 Set local variable first for immediate use
+        currentUserPreferences = {
+          trigger_words: trigger_words || [],
+          profanity_filter: profanity_filter !== false
+        };
+        
+        // Update state for display purposes
+        setUserPreferences(currentUserPreferences);
+        
+        // 🔥 Debug log to verify trigger words are loaded
+        console.log("Loaded trigger words:", currentUserPreferences.trigger_words);
 
-    // Step 2: Use the fetched bigint `id` to query the unlocked_whispers table
-    const { data: unlockedData, error: unlockedError } = await supabase
-        .from('unlocked_whispers')
-        .select('whisper_id')
-        .eq('user_id', id);
+        const { data: unlockedData, error: unlockedError } = await supabase
+          .from('unlocked_whispers')
+          .select('whisper_id')
+          .eq('user_id', id);
 
-    if (unlockedError) {
-        console.error("Error fetching unlocked whispers:", unlockedError);
-    } else {
-        setUnlockedWhisperIds(unlockedData.map(uw => uw.whisper_id));
-        console.log(unlockedData);
-    }
-}
+        if (unlockedError) {
+          console.error("Error fetching unlocked whispers:", unlockedError);
+        } else {
+          setUnlockedWhisperIds(unlockedData.map(uw => uw.whisper_id));
+        }
+      }
 
-      // Fetch all whispers
       const { data, error } = await supabase.from("Whispers").select(`
         id,
         content,
@@ -93,6 +106,8 @@ const Whispers = () => {
         Image_url,
         longitude,
         latitude,
+        Likes,
+        created_at,
         users:user_id (username, gmail, profilepic)
       `);
 
@@ -101,7 +116,42 @@ const Whispers = () => {
         return;
       }
 
-      const whispersWithDistance = data.map((w) => {
+      let filteredWhispers = data;
+      const originalCount = data.length;
+
+      // 🔥 Use local variable for filtering (not state)
+      if (currentUserPreferences.trigger_words && currentUserPreferences.trigger_words.length > 0) {
+        console.log("Filtering with trigger words:", currentUserPreferences.trigger_words);
+        
+        filteredWhispers = data.filter(whisper => {
+          const filterResult = contentFilter.containsTriggerWords(
+            whisper.content,
+            currentUserPreferences.trigger_words,
+            70
+          );
+          
+          // 🔥 Debug log for filtered whispers
+          if (filterResult.hasMatch) {
+            console.log(`🚫 FILTERED: "${whisper.content}" - matches:`, filterResult.matches);
+          }
+          
+          return !filterResult.hasMatch;
+        });
+      }
+
+      if (currentUserPreferences.profanity_filter) {
+        filteredWhispers = filteredWhispers.map(whisper => ({
+          ...whisper,
+          content: contentFilter.censorProfanity(whisper.content, 80)
+        }));
+      }
+
+      setFilteredCount(originalCount - filteredWhispers.length);
+      
+      // 🔥 Debug log for filtering results
+      console.log(`📊 Filtered ${originalCount - filteredWhispers.length} out of ${originalCount} whispers`);
+
+      const whispersWithDistance = filteredWhispers.map((w) => {
         if (!userLocation.latitude || !userLocation.longitude) {
           return { ...w, distance: Infinity };
         }
@@ -121,15 +171,16 @@ const Whispers = () => {
       whispersWithDistance.sort((a, b) => a.distance - b.distance);
       setWhispers(whispersWithDistance);
     }
+    
     fetchWhispersAndPoints();
-  }, [userLocation, isLocationLoading]); 
+  }, [userLocation, isLocationLoading]); // 🔥 Don't include userPreferences here
 
   const handlePointsUpdate = (newPoints) => {
     setUserPoints(newPoints);
   };
   
   const handleUnlockSuccess = (whisperId) => {
-      setUnlockedWhisperIds(prevIds => [...prevIds, whisperId]);
+    setUnlockedWhisperIds(prevIds => [...prevIds, whisperId]);
   };
 
   if (error) return <div>Error: {error}</div>;
@@ -137,20 +188,36 @@ const Whispers = () => {
   if (!whispers.length) return <DreamyLoader />; 
 
   return (
-    <ul style={{ listStyleType: "none" }}>
-      {whispers.map((w) => (
-        <li key={w.id}>
-          <Whisper 
-            whisper={w} 
-            maxDistance={maxDistance} 
-            userPoints={userPoints}
-            unlocked={unlockedWhisperIds.includes(w.id)} // Pass the unlock status
-            onPointsUpdate={handlePointsUpdate}
-            onUnlockSuccess={handleUnlockSuccess}
-          />
-        </li>
-      ))}
-    </ul>
+    <div>
+      {filteredCount > 0 && (
+        <div style={{
+          background: 'rgba(255, 214, 186, 0.2)',
+          padding: '10px',
+          borderRadius: '10px',
+          margin: '10px 0',
+          textAlign: 'center',
+          color: '#FFD6BA',
+          fontSize: '14px'
+        }}>
+          📱 {filteredCount} whisper{filteredCount > 1 ? 's' : ''} filtered based on your preferences
+        </div>
+      )}
+
+      <ul style={{ listStyleType: "none" }}>
+        {whispers.map((w) => (
+          <li key={w.id}>
+            <Whisper 
+              whisper={w} 
+              maxDistance={maxDistance} 
+              userPoints={userPoints}
+              unlocked={unlockedWhisperIds.includes(w.id)}
+              onPointsUpdate={handlePointsUpdate}
+              onUnlockSuccess={handleUnlockSuccess}
+            />
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 };
 

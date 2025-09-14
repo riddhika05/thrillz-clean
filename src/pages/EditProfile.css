@@ -63,6 +63,7 @@
   flex-direction: column;
   align-items: center;
 }
+
 .avatar {
   width: 120px;
   height: 120px;
@@ -72,11 +73,13 @@
   align-items: center;
   justify-content: center;
 }
+
 .avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
+
 .plus-icon {
   position: absolute;
   bottom: 8px; right: 8px;
@@ -132,41 +135,170 @@
   color: #fff;
   transition: border-color 0.3s, background-color 0.3s;
 }
+
 .edit-input::placeholder {
   color: rgba(255,255,255,0.75);
 }
+
 .edit-input:focus {
   border-color: #4d90fe;
   background-color: rgba(220,178,181,0.9);
 }
 
-/* TRIGGER WORDS */
-.trigger-words-section {
+/* ENHANCED TRIGGER WORDS SECTION */
+.trigger-help-text {
+  display: block;
+  font-size: 12px;
+  color: rgba(255, 214, 186, 0.8);
+  margin-top: 4px;
+  font-weight: normal;
+  font-style: italic;
+}
+
+.profanity-help-text {
+  display: block;
+  font-size: 12px;
+  color: rgba(255, 214, 186, 0.8);
+  margin-top: 4px;
+  font-weight: normal;
+  font-style: italic;
+}
+
+.trigger-input-container {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
 }
-.trigger-word {
-  background: rgba(255,255,255,0.14);
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-size: 14px;
-  color: #fff;
+
+.trigger-input-container .edit-input {
+  flex: 1;
 }
+
 .add-trigger-btn {
-  background: #4d90fe;
+  background: linear-gradient(135deg, #4d90fe 0%, #a186eb 100%);
   color: #fff;
+  border: none;
   border-radius: 50%;
-  width: 28px;
-  height: 28px;
+  width: 45px;
+  height: 45px;
   font-size: 18px;
+  font-weight: bold;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(77, 144, 254, 0.3);
 }
 
-/* PROFANITY */
+.add-trigger-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(77, 144, 254, 0.4);
+  background: linear-gradient(135deg, #5a9cff 0%, #b195f0 100%);
+}
+
+.add-trigger-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  background: rgba(77, 144, 254, 0.5);
+}
+
+.trigger-words-section {
+  min-height: 80px;
+  padding: 20px;
+  border: 2px dashed rgba(255, 214, 186, 0.4);
+  border-radius: 20px;
+  background: rgba(220, 178, 181, 0.2);
+  margin: 15px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-start;
+  align-content: flex-start;
+  backdrop-filter: blur(8px);
+  transition: all 0.3s ease;
+}
+
+.trigger-words-section:hover {
+  border-color: rgba(255, 214, 186, 0.6);
+  background: rgba(220, 178, 181, 0.3);
+}
+
+.trigger-word {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 214, 186, 0.3) 100%);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 10px 16px;
+  border-radius: 25px;
+  font-size: 14px;
+  color: #FFD6BA;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  animation: fadeInScale 0.4s ease-out;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.trigger-word:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 214, 186, 0.4) 100%);
+}
+
+.remove-trigger-btn {
+  background: rgba(255, 255, 255, 0.3);
+  border: none;
+  color: #FFD6BA;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  padding: 2px;
+  line-height: 1;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.remove-trigger-btn:hover {
+  background: rgba(255, 99, 99, 0.8);
+  color: white;
+  transform: scale(1.1);
+}
+
+.no-trigger-words {
+  width: 100%;
+  text-align: center;
+  padding: 30px 20px;
+}
+
+.no-trigger-words p {
+  color: rgba(255, 214, 186, 0.7);
+  font-style: italic;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+@keyframes fadeInScale {
+  from { 
+    opacity: 0; 
+    transform: scale(0.8) translateY(-10px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: scale(1) translateY(0); 
+  }
+}
+
+/* PROFANITY TOGGLE - Enhanced */
 .profanity-section {
   display: flex;
   align-items: center;
@@ -175,33 +307,41 @@
   font-weight: 600;
   font-size: 18px;
 }
+
 .toggle {
-  width: 56px;
+  width: 60px;
   height: 32px;
   border-radius: 999px;
   background: rgba(255,255,255,0.3);
   position: relative;
   cursor: pointer;
-  transition: background 0.2s;
-}
-.toggle.active {
-  background: #67e07a;
-}
-.toggle-knob {
-  position: absolute;
-  top: 3.5px;
-  left: 7px;
-  width: 25px;
-  height: 25px;
-  border-radius: 50%;
-  background: #fff;
-  transition: left 0.22s;
-}
-.toggle-knob.active {
-  left: 29px;
+  transition: all 0.3s ease;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* SAVE BUTTON */
+.toggle.active {
+  background: linear-gradient(135deg, #67e07a 0%, #4d90fe 100%);
+  box-shadow: 0 4px 15px rgba(103, 224, 122, 0.4);
+}
+
+.toggle-knob {
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #fff;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-knob.active {
+  left: 30px;
+  box-shadow: 0 2px 8px rgba(77, 144, 254, 0.3);
+}
+
+/* SAVE BUTTON - Enhanced */
 .save-btn {
   margin-top: 28px;
   padding: 16px 0;
@@ -214,12 +354,24 @@
   font-size: 18px;
   font-weight: 700;
   cursor: pointer;
-  transition: background 0.16s;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
 }
-.save-btn:hover {
-  background: #eee;
-  color: rgb(235, 145, 235);
+
+.save-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #FFD6BA 0%, #a186eb 100%);
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(255, 214, 186, 0.3);
 }
+
+.save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
 /* BACK ARROW */
 .Arrow {
   position: absolute;
@@ -237,6 +389,7 @@
   transform: scale(1.1);
   opacity: 0.9;
 }
+
 /* .music{
   position: absolute;
   right:20
@@ -248,6 +401,7 @@
     bottom:55px
   }
 
+
 /* -------------------------
    RESPONSIVE MEDIA QUERIES
 -------------------------- */
@@ -258,25 +412,30 @@
     flex-direction: column;
     align-items: flex-start;
   }
+  
   .edit-label {
     min-width: auto;
     font-size: 16px;
   }
+  
   .logout-btn-gradient {
     padding: 8px 16px;
     font-size: 14px;
     top: 24px;
     right: 24px;
   }
+  
   .avatar {
     width: 100px;
     height: 100px;
   }
+
   .music
   {
     position: relative;
     left: 200px;
     bottom:55px
+
   }
 }
 
@@ -286,17 +445,21 @@
     justify-content: flex-start;
     padding-top: 80px;
   }
+  
   .form-row {
     gap: 8px;
   }
+  
   .edit-input {
     font-size: 14px;
     padding: 12px 18px;
   }
+  
   .save-btn {
     font-size: 16px;
     padding: 14px 0;
   }
+  
   .logout-btn-gradient {
     top: 12px;
     right: 12px;
@@ -304,13 +467,36 @@
     font-size: 12px;
     gap: 6px;
   }
+  
   .avatar {
     width: 80px;
     height: 80px;
   }
+  
   .trigger-word {
     font-size: 12px;
-    padding: 6px 10px;
+    padding: 8px 12px;
+  }
+  
+  .trigger-input-container {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .add-trigger-btn {
+    width: 100%;
+    border-radius: 999px;
+    height: 40px;
+  }
+  
+  .trigger-words-section {
+    padding: 12px;
+    min-height: 60px;
+  }
+  
+  .trigger-help-text,
+  .profanity-help-text {
+    font-size: 11px;
   }
    .music
   {
@@ -325,13 +511,16 @@
   .edit-profile-container {
     padding: 0 10px;
   }
+  
   .edit-label {
     font-size: 14px;
   }
+  
   .edit-input {
     font-size: 13px;
     padding: 10px 14px;
   }
+  
   .logout-btn-gradient {
     font-size: 10px;
     padding: 4px 8px;
@@ -339,10 +528,12 @@
     top: 10px;
     right: 10px;
   }
+  
   .save-btn {
     font-size: 14px;
     padding: 12px 0;
   }
+  
   .avatar {
     width: 70px;
     height: 70px;
@@ -352,5 +543,28 @@
     position: relative;
     left: 20px;
     top:10px;
+  
+  .trigger-word {
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+  
+  .add-trigger-btn {
+    height: 35px;
+    font-size: 16px;
+  }
+  
+  .trigger-words-section {
+    padding: 10px;
+    min-height: 50px;
+  }
+  
+  .no-trigger-words p {
+    font-size: 14px;
+  }
+  
+  .trigger-help-text,
+  .profanity-help-text {
+    font-size: 10px;
   }
 }

@@ -10,6 +10,9 @@ import {
 } from "unique-names-generator";
 import { supabase } from "../supabaseClient";
 import { FaArrowLeft } from "react-icons/fa";
+import ContentFilter from "../utils/contentFilter";
+
+const contentFilter = new ContentFilter();
 
 function generateUsername() {
   return uniqueNamesGenerator({
@@ -31,10 +34,11 @@ const EditProfile = ({ audioRef }) => {
   const [profilePic, setProfilePic] = useState(null);
   const [profileId, setProfileId] = useState(null);
   const [isMuted, setIsMuted] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
 
-  // keep sync with audioRef
+  // Keep sync with audioRef
   useEffect(() => {
     if (audioRef?.current) {
       setIsMuted(audioRef.current.muted);
@@ -48,14 +52,56 @@ const EditProfile = ({ audioRef }) => {
     }
   };
 
-  const handleAddTriggerWord = () => {
-    if (
-      triggerWordInput.trim() &&
-      !triggerWords.includes(triggerWordInput.trim())
-    ) {
-      setTriggerWords([...triggerWords, triggerWordInput.trim()]);
-      setTriggerWordInput("");
+  // Load user profile and preferences
+  useEffect(() => {
+    async function loadProfile() {
+      try {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) return;
+
+        const { data, error } = await supabase
+          .from("users")
+          .select("id, username, profilepic, trigger_words, profanity_filter")
+          .eq("user_id", user.id)
+          .single();
+
+        if (!error && data) {
+          setProfileId(data.id);
+          setNickname(data.username || generateUsername());
+          setProfilePic(data.profilepic || null);
+          setAvatarPreview(data.profilepic || null);
+          setTriggerWords(data.trigger_words || []);
+          setProfanity(data.profanity_filter !== false); // Default to true
+        }
+      } catch (error) {
+        console.error("Error loading profile:", error);
+      }
     }
+    loadProfile();
+  }, []);
+
+  const handleAddTriggerWord = () => {
+    const word = triggerWordInput.trim().toLowerCase();
+    if (!word) return;
+
+    // Check if word already exists or is too similar to existing words
+    const similarWord = triggerWords.find(existing => 
+      contentFilter.similarity(word, existing.toLowerCase()) > 85
+    );
+
+    if (similarWord) {
+      alert(`"${word}" is too similar to existing trigger word: "${similarWord}"`);
+      return;
+    }
+
+    // Check if word is longer than 1 character
+    if (word.length < 2) {
+      alert("Trigger words must be at least 2 characters long");
+      return;
+    }
+
+    setTriggerWords([...triggerWords, word]);
+    setTriggerWordInput("");
   };
 
   const handleRemoveTriggerWord = (wordToRemove) => {
@@ -66,17 +112,15 @@ const EditProfile = ({ audioRef }) => {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    setLoading(true);
 
     try {
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser();
-      if (authError || !user)
-        throw new Error(authError?.message || "No logged-in user");
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error(authError?.message || "No logged-in user");
 
       let profilepicUrl = profilePic || null;
 
+      // Handle avatar upload
       if (selectedAvatarFile) {
         const file = selectedAvatarFile;
         const fileExt = file.name.split(".").pop();
@@ -94,8 +138,21 @@ const EditProfile = ({ audioRef }) => {
         profilepicUrl = publicData?.publicUrl || profilepicUrl;
       }
 
-      const updates = { username: nickname };
+      // Update user profile with trigger words and profanity filter
+      const updates = { 
+        username: nickname,
+        trigger_words: triggerWords,
+        profanity_filter: profanity
+      };
       if (profilepicUrl) updates.profilepic = profilepicUrl;
+
+      // Update password if provided
+      if (password.trim()) {
+        const { error: passwordError } = await supabase.auth.updateUser({
+          password: password
+        });
+        if (passwordError) throw passwordError;
+      }
 
       const { error } = await supabase
         .from("users")
@@ -104,16 +161,26 @@ const EditProfile = ({ audioRef }) => {
 
       if (error) throw error;
       if (profilepicUrl) setProfilePic(profilepicUrl);
-      alert("Profile updated!");
+      
+      alert("Profile updated successfully!");
+      setPassword(""); // Clear password field after successful update
     } catch (err) {
       console.error("Error saving profile:", err.message);
-      alert("Failed to save profile");
+      alert(`Failed to save profile: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    alert("Logged Out");
-    navigate("/");
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      navigate("/");
+    } catch (error) {
+      console.error("Error logging out:", error);
+      alert("Error logging out");
+    }
   };
 
   const handleAvatarChange = (e) => {
@@ -126,41 +193,16 @@ const EditProfile = ({ audioRef }) => {
   };
 
   useEffect(() => {
-    if (!nickname) {
-      setNickname(generateUsername());
-    }
-  }, []);
-
-  useEffect(() => {
     return () => {
-      if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+      if (avatarPreview && avatarPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(avatarPreview);
+      }
     };
   }, [avatarPreview]);
 
   const handleContinue = () => {
     navigate("/profile");
   };
-
-  useEffect(() => {
-    async function loadProfile() {
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser();
-      if (authError || !user) return;
-      const { data, error } = await supabase
-        .from("users")
-        .select("id, username, profilepic")
-        .eq("user_id", user.id)
-        .single();
-      if (!error && data) {
-        setProfileId(data.id);
-        setProfilePic(data.profilepic || null);
-        setAvatarPreview(data.profilepic || null);
-      }
-    }
-    loadProfile();
-  }, []);
 
   return (
     <div className="edit-profile-container">
@@ -232,6 +274,7 @@ const EditProfile = ({ audioRef }) => {
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
             placeholder="Enter nickname"
+            required
           />
         </div>
 
@@ -252,43 +295,64 @@ const EditProfile = ({ audioRef }) => {
         <div className="form-row">
           <label className="edit-label" htmlFor="triggerWordInput">
             Trigger words
+            <span className="trigger-help-text">
+            
+            </span>
           </label>
-          <input
-            id="triggerWordInput"
-            className="edit-input"
-            type="text"
-            value={triggerWordInput}
-            onChange={(e) => setTriggerWordInput(e.target.value)}
-            placeholder="Trigger word"
-          />
-          <button
-            type="button"
-            className="add-trigger-btn"
-            onClick={handleAddTriggerWord}
-          >
-            +
-          </button>
+          <div className="trigger-input-container">
+            <input
+              id="triggerWordInput"
+              className="edit-input"
+              type="text"
+              value={triggerWordInput}
+              onChange={(e) => setTriggerWordInput(e.target.value)}
+              placeholder="Enter trigger word"
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddTriggerWord();
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="add-trigger-btn"
+              onClick={handleAddTriggerWord}
+              disabled={loading}
+            >
+              +
+            </button>
+          </div>
         </div>
 
         <div className="trigger-words-section" id="triggerWords">
-          {triggerWords.map((word, idx) => (
-            <span key={idx} className="trigger-word">
-              {word}
-              <button
-                type="button"
-                className="ml-2 text-white"
-                title="Remove trigger word"
-                onClick={() => handleRemoveTriggerWord(word)}
-              >
-                &times;
-              </button>
-            </span>
-          ))}
+          {triggerWords.length > 0 ? (
+            triggerWords.map((word, idx) => (
+              <span key={idx} className="trigger-word">
+                {word}
+                <button
+                  type="button"
+                  className="remove-trigger-btn"
+                  title="Remove trigger word"
+                  onClick={() => handleRemoveTriggerWord(word)}
+                >
+                  &times;
+                </button>
+              </span>
+            ))
+          ) : (
+            <div className="no-trigger-words">
+              <p>No trigger words set. All content will be visible in your feed.</p>
+            </div>
+          )}
         </div>
 
         <div className="form-row">
           <label className="edit-label" htmlFor="profanity-toggle">
-            Profanity Remover
+            Profanity Filter
+            <span className="profanity-help-text">
+              
+            </span>
           </label>
           <div
             id="profanity-toggle"
@@ -302,8 +366,8 @@ const EditProfile = ({ audioRef }) => {
           </div>
         </div>
 
-        <button type="submit" className="save-btn">
-          Save Changes
+        <button type="submit" className="save-btn" disabled={loading}>
+          {loading ? "Saving..." : "Save Changes"}
         </button>
       </form>
     </div>
