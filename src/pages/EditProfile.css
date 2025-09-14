@@ -237,10 +237,16 @@
   transform: scale(1.1);
   opacity: 0.9;
 }
-.music{
+/* .music{
   position: absolute;
   right:20
-}
+} */
+.music
+  {
+    position: relative;
+    left: 500px;
+    bottom:55px
+  }
 
 /* -------------------------
    RESPONSIVE MEDIA QUERIES
@@ -265,6 +271,12 @@
   .avatar {
     width: 100px;
     height: 100px;
+  }
+  .music
+  {
+    position: relative;
+    left: 200px;
+    bottom:55px
   }
 }
 
@@ -300,6 +312,12 @@
     font-size: 12px;
     padding: 6px 10px;
   }
+   .music
+  {
+    position: relative;
+    left: 50px;
+    bottom:60px
+  }
 }
 
 /* Extra Small Phones (<= 400px) */
@@ -328,5 +346,11 @@
   .avatar {
     width: 70px;
     height: 70px;
+  }
+  .music
+  {
+    position: relative;
+    left: 20px;
+    top:10px;
   }
 }
