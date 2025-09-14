@@ -45,7 +45,7 @@ const Follow = () => {
   const [reportReason, setReportReason] = useState('');
   const [selectedReportCategory, setSelectedReportCategory] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-
+  
   // Safety check - redirect if no whisper data
   useEffect(() => {
     if (!whisper) {
@@ -70,6 +70,8 @@ const Follow = () => {
           console.warn('No authenticated user found');
           return;
         }
+
+  
 
         const { data, error } = await supabase
           .from("users")
@@ -178,9 +180,44 @@ const Follow = () => {
     }
   };
 
-  const handleChat = () => {
-    if (!isFollowing || isBlocked || isBlockedByOther) return;
-    navigate("/chat");
+  const handleChat = async () => {
+    if (!isFollowing || isBlocked || isBlockedByOther || !whisper || !whisper.user_id) return;
+    
+    try {
+      console.log('Whisper user_id (references users.id):', whisper.user_id);
+      
+      // Fetch the user_id from users table using whisper.user_id (which references users.id)
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('user_id')
+        .eq('id', whisper.user_id)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching user_id:', error);
+        alert('Failed to start chat. Please try again.');
+        return;
+      }
+      
+      if (!userData || !userData.user_id) {
+        console.error('No user_id found for the given whisper user_id');
+        alert('User not found. Please try again.');
+        return;
+      }
+      
+      console.log('Found user_id:', userData.user_id);
+      
+      // Navigate to chat with the fetched user_id
+      navigate("/chat", { 
+        state: { 
+          recipientId: userData.user_id 
+        } 
+      });
+      
+    } catch (error) {
+      console.error('Error in handleChat:', error);
+      alert('Failed to start chat. Please try again.');
+    }
   };
 
   const handleContinue = () => {
@@ -584,14 +621,14 @@ const Follow = () => {
               points
             </span>
           </div>
-          <div className="flex flex-col items-center">
+          {/* <div className="flex flex-col items-center">
             <span className="font-sans text-2xl md:text-3xl lg:text-4xl font-bold text-white">
               2k
             </span>
             <span className="font-sans text-sm md:text-base lg:text-lg text-white">
               likes
             </span>
-          </div>
+          </div> */}
           <div className="flex flex-col items-center">
             <span className="font-sans text-2xl md:text-3xl lg:text-4xl font-bold text-white">
               {whispers.length}

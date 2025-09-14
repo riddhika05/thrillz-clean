@@ -1,56 +1,180 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FaSearch, FaArrowLeft } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import backgroundImage from "../assets/new post.png";
+import { supabase } from "../supabaseClient";
 
 const Chatbox = () => {
-  const [activeTab, setActiveTab] = useState("chats");
-  const [chats, setChats] = useState([
-    { id: 1, name: "sweety_21", avatar: "https://avatar.iran.liara.run/public/84", messages: [{ text: "Hey!", type: "received" }] },
-    { id: 2, name: "macha_lover12", avatar: "https://avatar.iran.liara.run/public/78", messages: [{ text: "Hello!", type: "received" }] },
-    { id: 3, name: "panda_20", avatar: "https://avatar.iran.liara.run/public/100", messages: [] },
-  ]);
-  const [groups, setGroups] = useState([
-    { id: 101, name: "Jaipur Monuments", avatar: "https://iachhrunouathmjxihdg.supabase.co/storage/v1/object/public/Post_images/Hawa%20mahal.jpg", messages: [{ text: "Rani ka Bagh is so underrated! ✨", type: "received" }] },
-    { id: 102, name: "Pretty Cafes", avatar: "https://images.pexels.com/photos/33569450/pexels-photo-33569450.jpeg", messages: [{ text: "They have the cutest latte art, had to click a pic 📸☕", type: "received" }] },
-  ]);
+  const [chats, setChats] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentUser, setCurrentUser] = useState(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
 
-  const isChatTab = activeTab === "chats";
-  const chatList = isChatTab ? chats : groups;
-  const setChatList = isChatTab ? setChats : setGroups;
   const navigate = useNavigate();
+  const location = useLocation();
+  const { recipientId } = location.state || {};
 
-  const sendMessage = () => {
-    if (!selectedChat || newMessage.trim() === "") return;
+  // This useEffect now handles all initial data fetching and setup.
+  useEffect(() => {
+    async function initializeChat() {
+      // 1. Fetch the current authenticated user first.
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        navigate("/login");
+        return;
+      }
+      setCurrentUser(user);
 
-    const updatedChats = chatList.map((chat) =>
-      chat.id === selectedChat.id
-        ? { ...chat, messages: [...chat.messages, { text: newMessage, type: "sent" }] }
-        : chat
-    );
+      // 2. Fetch all chats for the current user, including last message and other user's profile.
+      const { data: chatsData, error: chatsError } = await supabase
+        .from("chats")
+        .select(`
+          id,
+          user1,
+          user2,
+          messages!chat_id(content, created_at)
+        `)
+        .or(`user1.eq.${user.id},user2.eq.${user.id}`)
+        .order('created_at', { foreignTable: 'messages', ascending: false });
 
-    const updatedSelected = updatedChats.find((c) => c.id === selectedChat.id);
-    const reorderedChats = [
-      updatedSelected,
-      ...updatedChats.filter((c) => c.id !== selectedChat.id),
-    ];
+      if (chatsError) {
+        console.error("Error fetching chats:", chatsError);
+        return;
+      }
 
-    setChatList(reorderedChats);
-    setSelectedChat(updatedSelected);
-    setNewMessage("");
+      // 3. Process chat data to get the other user's profile and last message.
+      const chatListWithDetails = await Promise.all(
+        chatsData.map(async (chat) => {
+          const otherUserId = chat.user1 === user.id ? chat.user2 : chat.user1;
+          const { data: otherUserData } = await supabase
+            .from("users")
+            .select("username, profilepic")
+            .eq("user_id", otherUserId)
+            .single();
+
+          const lastMessage = chat.messages.length > 0 ? chat.messages[0].content : "No messages yet.";
+
+          return {
+            ...chat,
+            otherUser: otherUserData,
+            lastMessage: lastMessage,
+          };
+        })
+      );
+
+      setChats(chatListWithDetails);
+
+      // 4. If a recipientId was passed, find or create the chat and open it.
+      if (recipientId) {
+        let chatToOpen = chatListWithDetails.find(
+          (c) => (c.user1 === recipientId && c.user2 === user.id) || (c.user1 === user.id && c.user2 === recipientId)
+        );
+
+        if (!chatToOpen) {
+          const { data: newChat, error: chatError } = await supabase
+            .from("chats")
+            .insert({ user1: user.id, user2: recipientId })
+            .select()
+            .single();
+
+          if (chatError) {
+            console.error("Error creating new chat:", chatError);
+            return;
+          }
+
+          const { data: otherUserData } = await supabase
+            .from("users")
+            .select("username, profilepic")
+            .eq("user_id", recipientId)
+            .single();
+
+          chatToOpen = { 
+            ...newChat, 
+            otherUser: otherUserData, 
+            lastMessage: "Start a new conversation!",
+            messages: [] 
+          };
+          setChats(prev => [chatToOpen, ...prev]);
+        }
+        
+        handleChatCardClick(chatToOpen);
+      }
+    }
+
+    initializeChat();
+  }, [navigate, recipientId]);
+
+  // Real-time message subscription
+  useEffect(() => {
+    if (!selectedChat || !selectedChat.id) return;
+
+    const subscription = supabase
+      .channel(`messages_${selectedChat.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `chat_id=eq.${selectedChat.id}`,
+        },
+        (payload) => {
+          setMessages((prev) => [...prev, payload.new]);
+          // Update the last message in the chat list
+          setChats(prevChats =>
+            prevChats.map(chat =>
+              chat.id === selectedChat.id
+                ? { ...chat, lastMessage: payload.new.content }
+                : chat
+            )
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, [selectedChat]);
+
+  const sendMessage = async () => {
+    if (!selectedChat || newMessage.trim() === "" || !currentUser) return;
+
+    const { error: messageError } = await supabase.from("messages").insert({
+      chat_id: selectedChat.id,
+      sender: currentUser.id,
+      content: newMessage,
+    });
+
+    if (messageError) {
+      console.error("Error sending message:", messageError);
+    } else {
+      setNewMessage("");
+    }
   };
 
-  const filteredChats = chatList.filter((chat) =>
-    chat.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredChats = chats.filter((chat) =>
+    chat.otherUser?.username.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleChatCardClick = (chat) => {
+  const handleChatCardClick = async (chat) => {
     setSelectedChat(chat);
     setIsChatOpen(true);
+
+    const { data: messagesData, error: messagesError } = await supabase
+      .from("messages")
+      .select("*")
+      .eq("chat_id", chat.id)
+      .order("created_at", { ascending: true });
+
+    if (messagesError) {
+      console.error("Error fetching messages:", messagesError);
+      return;
+    }
+    setMessages(messagesData);
   };
 
   const handleBackClick = () => {
@@ -71,35 +195,7 @@ const Chatbox = () => {
             onClick={() => navigate(-1)}
           />
         </div>
-        <div className="flex justify-between gap-2 mb-4">
-          <button
-            className={`flex-1 rounded-full px-4 py-2 font-bold transition-colors ${
-              activeTab === "chats"
-                ? "bg-white text-[#4b4bc0] border-2 border-[#4b4bc0]"
-                : "bg-gray-300/50 text-gray-800 hover:bg-white/50"
-            }`}
-            onClick={() => {
-              setActiveTab("chats");
-              setSelectedChat(null);
-            }}
-          >
-            Chats
-          </button>
-          <button
-            className={`flex-1 rounded-full px-4 py-2 font-bold transition-colors ${
-              activeTab === "groups"
-                ? "bg-white text-[#4b4bc0] border-2 border-[#4b4bc0]"
-                : "bg-gray-300/50 text-gray-800 hover:bg-white/50"
-            }`}
-            onClick={() => {
-              setActiveTab("groups");
-              setSelectedChat(null);
-            }}
-          >
-            Groups
-          </button>
-        </div>
-
+        
         <div className="relative mb-4">
           <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
@@ -122,14 +218,10 @@ const Chatbox = () => {
               key={chat.id}
               onClick={() => handleChatCardClick(chat)}
             >
-              <img src={chat.avatar} alt="avatar" className="h-10 w-10 rounded-full" />
+              <img src={chat.otherUser?.profilepic || "https://avatar.iran.liara.run/public/84"} alt="avatar" className="h-10 w-10 rounded-full" />
               <div>
-                <p className="font-semibold text-[#784552]">{chat.name}</p>
-                <p className="text-sm text-gray-500">
-                  {chat.messages.length > 0
-                    ? chat.messages[chat.messages.length - 1].text
-                    : "No messages yet"}
-                </p>
+                <p className="font-semibold text-[#784552]">{chat.otherUser?.username || "Loading..."}</p>
+                <p className="message">{chat.lastMessage}</p>
               </div>
             </div>
           ))}
@@ -145,20 +237,20 @@ const Chatbox = () => {
                 className="text-white text-2xl cursor-pointer sm:hidden"
                 onClick={handleBackClick}
               />
-              <img src={selectedChat.avatar} alt="avatar" className="h-12 w-12 rounded-full" />
-              <p className="text-lg font-bold text-white">{selectedChat.name}</p>
+              <img src={selectedChat.otherUser?.profilepic || "https://avatar.iran.liara.run/public/84"} alt="avatar" className="h-12 w-12 rounded-full" />
+              <p className="text-lg font-bold text-white">{selectedChat.otherUser?.username || "Loading..."}</p>
             </div>
             <div className="flex-1 overflow-y-auto py-4">
-              {selectedChat.messages.map((msg, i) => (
+              {messages.map((msg, i) => (
                 <div
                   key={i}
                   className={`mb-3 max-w-[70%] rounded-2xl p-3 text-sm shadow-sm ${
-                    msg.type === "sent"
+                    msg.sender === currentUser?.id
                       ? "ml-auto rounded-br-none bg-pink-200 text-[#784552]"
                       : "mr-auto rounded-bl-none bg-white text-gray-700"
                   }`}
                 >
-                  {msg.text}
+                  {msg.content}
                 </div>
               ))}
             </div>
@@ -167,6 +259,9 @@ const Chatbox = () => {
                 type="text"
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') sendMessage();
+                }}
                 placeholder="Type a message..."
                 className="flex-1 rounded-full border border-gray-300 bg-white/80 py-2 pl-4 pr-12 outline-none"
               />
@@ -180,7 +275,7 @@ const Chatbox = () => {
           </>
         ) : (
           <div className="flex h-full items-center justify-center text-center text-xl font-semibold text-gray-600">
-            Select a chat or group to start messaging.
+            Select a chat to start messaging.
           </div>
         )}
       </div>

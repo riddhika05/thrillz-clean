@@ -186,12 +186,12 @@ const Profile = ({ audioRef }) => {
             </span>
             <span className="text-sm md:text-base lg:text-lg text-white">points</span>
           </div>
-          <div className="flex flex-col items-center">
+          {/* <div className="flex flex-col items-center">
             <span className="text-2xl md:text-3xl lg:text-4xl font-bold text-white">
               2k
             </span>
             <span className="text-sm md:text-base lg:text-lg text-white">likes</span>
-          </div>
+          </div> */}
           <div className="flex flex-col items-center">
             <span className="text-2xl md:text-3xl lg:text-4xl font-bold text-white">
               {whispers.length}
