@@ -7,7 +7,7 @@ import Whispers from "./Whispers"; // Ensure this path is correct
 import { useNavigate } from "react-router-dom";
 import postBackground from "../assets/post.png"; // Ensure this path is correct
 import { supabase } from "../supabaseClient";
-import { FaGem, FaBell } from "react-icons/fa"; // Import the gem and bell icons
+import { FaGem, FaBell, FaUsers } from "react-icons/fa"; // Import all required icons
 
 // Main Post component, now receiving audioRef as a prop
 function Post({ audioRef }) {
@@ -66,6 +66,10 @@ function Header({ audioRef }) {
     navigate("/notif");
   }
 
+  function handleUsersClick() {
+    navigate("/usersss");
+  }
+
   // Function to toggle music mute state
   function toggleMusic() {
     if (audioRef.current) {
@@ -86,34 +90,39 @@ function Header({ audioRef }) {
             />
             {/* Points display below the profile picture */}
             <div className="flex items-center gap-1 mt-1">
-              <FaGem className="text-pink-300 text-xl" />
-              <span className="text-pink-300 text-xl">{points}</span>
+              <FaGem className="text-pink-300 text-sm sm:text-base md:text-lg lg:text-xl" />
+              <span className="text-pink-300 text-sm sm:text-base md:text-lg lg:text-xl">{points}</span>
             </div>
         </div>
       
-        <div className="ml-auto flex flex-wrap items-center gap-2 sm:gap-4 md:gap-6 lg:gap-8 text-[#5a4fcf]">
+        <div className="ml-auto flex flex-wrap items-center gap-2 sm:gap-3 md:gap-4 lg:gap-6 text-[#5a4fcf]">
           {/* Music button with mute indicator */}
           <div className="relative cursor-pointer" onClick={toggleMusic}>
             <img
               src={musicIcon}
               alt="Music"
-              className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12"
+              className="h-7 w-7 sm:h-8 sm:w-8 md:h-10 md:w-10 lg:h-12 lg:w-12"
             />
             {isMuted && (
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-full h-[3px] bg-red-600 rotate-45"></div>
+                <div className="w-full h-[2px] sm:h-[3px] bg-red-600 rotate-45"></div>
               </div>
             )}
           </div>
 
           {/* Notification bell */}
-          <div className="cursor-pointer" onClick={handleNotificationClick}>
-            <FaBell className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 text-pink-300 hover:text-pink-500 transition-colors" />
+          <div className="cursor-pointer hover:scale-110 transition-transform" onClick={handleNotificationClick}>
+            <FaBell className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7 lg:h-8 lg:w-8 text-pink-300 hover:text-pink-500 transition-colors" />
+          </div>
+
+          {/* Users icon */}
+          <div className="cursor-pointer hover:scale-110 transition-transform" onClick={handleUsersClick}>
+            <FaUsers className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7 lg:h-8 lg:w-8 text-pink-300 hover:text-pink-500 transition-colors" />
           </div>
 
           <Explore />
           <div
-            className="w-24 h-10 sm:w-28 sm:h-12 bg-[#D9D9D9] rounded-[40px] flex items-center justify-center cursor-pointer text-xs sm:text-sm"
+            className="w-20 h-8 sm:w-24 sm:h-10 md:w-28 md:h-12 bg-[#D9D9D9] rounded-[40px] flex items-center justify-center cursor-pointer text-xs sm:text-sm hover:bg-gray-300 transition-colors"
             onClick={handleAddPost}
           >
             <div className="font-['Pacifico'] font-normal not-italic text-center">
@@ -136,7 +145,7 @@ function Explore() {
   }
   return (
     <div
-      className="w-24 h-10 sm:w-28 sm:h-12 bg-[#D9D9D9] rounded-[40px] flex items-center justify-center cursor-pointer text-xs sm:text-sm"
+      className="w-20 h-8 sm:w-24 sm:h-10 md:w-28 md:h-12 bg-[#D9D9D9] rounded-[40px] flex items-center justify-center cursor-pointer text-xs sm:text-sm hover:bg-gray-300 transition-colors"
       onClick={handleClick}
     >
       <div className="font-['Pacifico'] font-normal not-italic text-center">

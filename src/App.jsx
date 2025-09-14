@@ -14,6 +14,9 @@ import Newpost from "./pages/Newpost";
 import Follow from "./pages/Follow";
 import Signup from "./pages/Signup"
 import Login from "./pages/Login"
+import Userss from "./pages/Userss"
+
+
 function App() {
   const audioRef = useRef(null);
 
@@ -62,7 +65,8 @@ function App() {
         <Route path="/signup" element={<Signup />} />
         <Route path="/login" element={<Login />} />
         <Route path="/Map" element={<Comments audioRef={audioRef} />} />
-         <Route path="/notif" element={<Notification />} />
+        <Route path="/notif" element={<Notification />} />
+        <Route path="/usersss" element={<Userss/>} />
       </Routes>
     </Router>
   );
