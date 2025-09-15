@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import musicIcon from "../assets/music.png";
 import profileAvatar from "../assets/username.png";
 import Whispers from "./Whispers";
 import { useNavigate } from "react-router-dom";
 import postBackground from "../assets/post.png";
 import { supabase } from "../supabaseClient";
-import { FaGem, FaBell, FaUsers } from "react-icons/fa";
+import { FaGem, FaBell, FaUsers, FaComment } from "react-icons/fa"; // Import FaComment icon
 import Loader from '../components/loader';
 
 // Main Post component, now receiving audioRef as a prop
@@ -17,6 +17,9 @@ function Post({ audioRef }) {
     >
       {/* Pass audioRef down to the Header component */}
       <Header audioRef={audioRef} />
+      <div className="w-9/12 mx-auto mt-4 sm:mt-8 md:mt-12 max-h-[70vh] overflow-y-auto hide-scrollbar">
+        <Whispers />
+      </div>
     </div>
   );
 }
@@ -52,18 +55,13 @@ function Header({ audioRef }) {
           const { latitude, longitude } = position.coords;
 
           // 2. Use a reverse geocoding API to get a readable address
-          // Note: You need to replace this with a real API call.
-          // This is a simplified placeholder.
           let locationName = "Unknown Location";
           try {
-            // Using Nominatim for a more complete address
             const geoApiUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`;
             const response = await fetch(geoApiUrl);
             const data = await response.json();
             
-            // Prioritize a full display name for a more complete location
             locationName = data.display_name || data.address.city || data.address.town || data.address.village || "Unknown Location";
-            
           } catch (geoError) {
             console.error("Reverse geocoding failed:", geoError);
           }
@@ -112,6 +110,11 @@ function Header({ audioRef }) {
 
   function handleUsersClick() {
     navigate("/usersss");
+  }
+  
+  // New function to handle chat icon click
+  function handleChatClick() {
+    navigate("/chat");
   }
 
   // Function to toggle music mute state
@@ -165,6 +168,11 @@ function Header({ audioRef }) {
               <div className="cursor-pointer hover:scale-110 transition-transform" onClick={handleUsersClick}>
                 <FaUsers className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7 lg:h-8 lg:w-8 text-pink-300 hover:text-pink-500 transition-colors" />
               </div>
+              
+              {/* New chat icon */}
+              <div className="cursor-pointer hover:scale-110 transition-transform" onClick={handleChatClick}>
+                <FaComment className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7 lg:h-8 lg:w-8 text-pink-300 hover:text-pink-500 transition-colors" />
+              </div>
 
               <Explore />
               <div
@@ -176,9 +184,6 @@ function Header({ audioRef }) {
                 </div>
               </div>
             </div>
-          </div>
-          <div className="w-9/12 mx-auto mt-4 sm:mt-8 md:mt-12 max-h-[70vh] overflow-y-auto hide-scrollbar">
-            <Whispers />
           </div>
         </>
       )}
