@@ -17,10 +17,9 @@ const Chatbox = () => {
   const location = useLocation();
   const { recipientId } = location.state || {};
 
-  // This useEffect now handles all initial data fetching and setup.
+  // Initial setup
   useEffect(() => {
     async function initializeChat() {
-      // 1. Fetch the current authenticated user first.
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         navigate("/login");
@@ -28,7 +27,6 @@ const Chatbox = () => {
       }
       setCurrentUser(user);
 
-      // 2. Fetch all chats for the current user, including last message and other user's profile.
       const { data: chatsData, error: chatsError } = await supabase
         .from("chats")
         .select(`
@@ -45,7 +43,6 @@ const Chatbox = () => {
         return;
       }
 
-      // 3. Process chat data to get the other user's profile and last message.
       const chatListWithDetails = await Promise.all(
         chatsData.map(async (chat) => {
           const otherUserId = chat.user1 === user.id ? chat.user2 : chat.user1;
@@ -67,7 +64,6 @@ const Chatbox = () => {
 
       setChats(chatListWithDetails);
 
-      // 4. If a recipientId was passed, find or create the chat and open it.
       if (recipientId) {
         let chatToOpen = chatListWithDetails.find(
           (c) => (c.user1 === recipientId && c.user2 === user.id) || (c.user1 === user.id && c.user2 === recipientId)
@@ -107,7 +103,7 @@ const Chatbox = () => {
     initializeChat();
   }, [navigate, recipientId]);
 
-  // Real-time message subscription
+  // Real-time subscription for messages
   useEffect(() => {
     if (!selectedChat || !selectedChat.id) return;
 
@@ -123,7 +119,6 @@ const Chatbox = () => {
         },
         (payload) => {
           setMessages((prev) => [...prev, payload.new]);
-          // Update the last message in the chat list
           setChats(prevChats =>
             prevChats.map(chat =>
               chat.id === selectedChat.id
@@ -139,6 +134,29 @@ const Chatbox = () => {
       supabase.removeChannel(subscription);
     };
   }, [selectedChat]);
+
+  // Polling fallback (refresh messages every 2s)
+  useEffect(() => {
+    if (!selectedChat || !currentUser) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const { data, error } = await supabase
+          .from("messages")
+          .select("*")
+          .eq("chat_id", selectedChat.id)
+          .order("created_at", { ascending: true });
+
+        if (!error && data) {
+          setMessages(data);
+        }
+      } catch (error) {
+        console.error("Auto-refresh error:", error);
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [selectedChat, currentUser]);
 
   const sendMessage = async () => {
     if (!selectedChat || newMessage.trim() === "" || !currentUser) return;
