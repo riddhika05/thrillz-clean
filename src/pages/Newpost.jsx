@@ -4,7 +4,29 @@ import { FaArrowLeft, FaGem } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import axios from "axios";
-import musicIcon from "../assets/music.png"; // ✅ Ensure path is correct
+import musicIcon from "../assets/music.png";
+import "../styles/animation.css"; // Make sure to import the CSS file with the petal animation
+
+// Helper function to generate petals
+const generatePetals = (containerRef) => {
+  if (!containerRef.current) return;
+  const count = 10;
+  const container = containerRef.current;
+
+  for (let i = 0; i < count; i++) {
+    const petal = document.createElement("div");
+    petal.classList.add("petal");
+    petal.style.left = `${Math.random() * 100}%`;
+    petal.style.top = `${Math.random() * 100}%`;
+    petal.style.animationDelay = `${Math.random() * 0.5}s`;
+    container.appendChild(petal);
+
+    // Clean up the petal element after the animation
+    petal.addEventListener("animationend", () => {
+      petal.remove();
+    });
+  }
+};
 
 export default function NewPost({ audioRef }) {
   const [text, setText] = useState("");
@@ -43,11 +65,22 @@ export default function NewPost({ audioRef }) {
 
   // Bonus Modal Component
   const BonusModal = ({ isOpen, title, points }) => {
+    const modalRef = useRef(null);
+    const [isBlooming, setIsBlooming] = useState(false);
+
+    useEffect(() => {
+      if (isOpen && !isBlooming) {
+        setIsBlooming(true);
+        // Trigger the petal animation
+        generatePetals(modalRef);
+      }
+    }, [isOpen, isBlooming]);
+
     useEffect(() => {
       if (isOpen) {
         const timer = setTimeout(() => {
           setShowBonusModal(false);
-          navigate("/post"); // navigate after modal closes
+          navigate("/post");
         }, 2000);
         return () => clearTimeout(timer);
       }
@@ -57,7 +90,10 @@ export default function NewPost({ audioRef }) {
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-        <div className="bg-white p-8 rounded-2xl shadow-2xl text-center max-w-sm mx-4">
+        <div
+          ref={modalRef} // Add ref to the modal container
+          className="relative bg-white p-8 rounded-2xl shadow-2xl text-center max-w-sm mx-4 overflow-hidden" // Add relative and overflow-hidden
+        >
           <div className="text-6xl mb-4">🎉</div>
           <h2 className="text-2xl font-bold text-pink-700 mb-2">{title}</h2>
           <div className="flex items-center justify-center gap-2 text-xl text-pink-500 font-semibold mb-4">
@@ -195,9 +231,11 @@ export default function NewPost({ audioRef }) {
           .from("users")
           .update({ points: newPoints })
           .eq("user_id", user.id);
+        // The modal will handle the navigation
         return;
       }
 
+      // If no bonus, navigate directly
       navigate("/post");
     } catch (err) {
       console.error("Error uploading whisper:", err.message);

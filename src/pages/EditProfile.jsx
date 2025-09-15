@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import girl from "../assets/username.png";
-import musicIcon from "../assets/music.png";
 import "./EditProfile.css";
 import { useNavigate } from "react-router-dom";
 import {
@@ -23,7 +22,7 @@ function generateUsername() {
   });
 }
 
-const EditProfile = ({ audioRef }) => {
+const EditProfile = () => {
   const [nickname, setNickname] = useState("");
   const [password, setPassword] = useState("");
   const [triggerWordInput, setTriggerWordInput] = useState("");
@@ -33,24 +32,9 @@ const EditProfile = ({ audioRef }) => {
   const [selectedAvatarFile, setSelectedAvatarFile] = useState(null);
   const [profilePic, setProfilePic] = useState(null);
   const [profileId, setProfileId] = useState(null);
-  const [isMuted, setIsMuted] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
-
-  // Keep sync with audioRef
-  useEffect(() => {
-    if (audioRef?.current) {
-      setIsMuted(audioRef.current.muted);
-    }
-  }, [audioRef]);
-
-  const toggleMusic = () => {
-    if (audioRef?.current) {
-      audioRef.current.muted = !audioRef.current.muted;
-      setIsMuted(audioRef.current.muted);
-    }
-  };
 
   // Load user profile and preferences
   useEffect(() => {
@@ -124,7 +108,7 @@ const EditProfile = ({ audioRef }) => {
       if (selectedAvatarFile) {
         const file = selectedAvatarFile;
         const fileExt = file.name.split(".").pop();
-        const fileName = `${Date.now()}.${fileExt}`;
+        const fileName = `${user.id}_${Date.now()}.${fileExt}`;
         const filePath = `${user.id}/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
@@ -206,25 +190,11 @@ const EditProfile = ({ audioRef }) => {
 
   return (
     <div className="edit-profile-container">
-      {/* Top bar with logout + music */}
-      <div className="flex items-center justify-between">
+      {/* Top bar with logout */}
+      <div className="flex items-center justify-end">
         <button className="logout-btn-gradient" onClick={handleLogout}>
           <span className="logout-btn-text">LOG-OUT</span>
         </button>
-
-        {/* music toggle */}
-        <div className="music" onClick={toggleMusic}>
-          <img
-            src={musicIcon}
-            alt="Music"
-            className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12"
-          />
-          {isMuted && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-full h-[3px] bg-red-600 rotate-45"></div>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Back Arrow */}
@@ -295,9 +265,7 @@ const EditProfile = ({ audioRef }) => {
         <div className="form-row">
           <label className="edit-label" htmlFor="triggerWordInput">
             Trigger words
-            <span className="trigger-help-text">
-            
-            </span>
+            <span className="trigger-help-text"></span>
           </label>
           <div className="trigger-input-container">
             <input
@@ -350,9 +318,7 @@ const EditProfile = ({ audioRef }) => {
         <div className="form-row">
           <label className="edit-label" htmlFor="profanity-toggle">
             Profanity Filter
-            <span className="profanity-help-text">
-              
-            </span>
+            <span className="profanity-help-text"></span>
           </label>
           <div
             id="profanity-toggle"

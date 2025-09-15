@@ -7,16 +7,54 @@ import { useNavigate } from "react-router-dom";
 import { useRef, useState, useEffect } from "react";
 import HeartButton from "../components/heart";
 import { supabase } from "../supabaseClient";
-import { FaGem } from "react-icons/fa"; // Import for the gem icon
+import { FaGem } from "react-icons/fa";
+
+// Make sure your CSS is imported
+import "../styles/animation.css";
+
+// Helper function to generate petals
+const generatePetals = (containerRef) => {
+  if (!containerRef.current) return;
+  const count = 10;
+  const container = containerRef.current;
+
+  for (let i = 0; i < count; i++) {
+    const petal = document.createElement("div");
+    petal.classList.add("petal");
+    petal.style.left = `${Math.random() * 100}%`;
+    petal.style.top = `${Math.random() * 100}%`;
+    petal.style.animationDelay = `${Math.random() * 0.5}s`;
+    container.appendChild(petal);
+
+    // Clean up the petal element after the animation
+    petal.addEventListener("animationend", () => {
+      petal.remove();
+    });
+  }
+};
 
 
 // Modal component
 const PointsModal = ({ isOpen, currentPoints, onClose }) => {
+  const modalRef = useRef(null);
+  const [isBlooming, setIsBlooming] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && !isBlooming) {
+      setIsBlooming(true);
+      // Trigger the petal generation
+      generatePetals(modalRef);
+    }
+  }, [isOpen, isBlooming]);
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-      <div className="bg-white p-6 rounded-lg shadow-lg text-center">
+      <div 
+        ref={modalRef}
+        className="relative bg-white p-6 rounded-lg shadow-lg text-center overflow-hidden" // Added relative and overflow-hidden
+      >
         <h2 className="text-xl font-bold text-pink-700">Whisper Unlocked!</h2>
         <div className="flex items-center justify-center gap-2 mt-4 text-pink-500 font-semibold">
           <FaGem className="text-lg" />

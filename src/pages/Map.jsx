@@ -1,16 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Navigation, Search } from "lucide-react";
 import { motion } from "framer-motion";
-import { FaArrowLeft } from "react-icons/fa"; 
+import { FaArrowLeft } from "react-icons/fa"; // Ensure react-icons is installed
 import { useNavigate } from "react-router-dom";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet"; 
-import { supabase } from "../supabaseClient"; 
-import DreamyLoader from "../components/loader"; 
-import "leaflet/dist/leaflet.css"; 
-import L from "leaflet"; 
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet"; // Ensure react-leaflet is installed
+import { supabase } from "../supabaseClient"; // Ensure this path is correct and file exists
+import DreamyLoader from "../components/loader"; // Ensure this path is correct and file exists
+import "leaflet/dist/leaflet.css"; // Ensure leaflet is installed
+import L from "leaflet"; // Ensure leaflet is installed
 import axios from "axios";
-import bgImage from "../assets/new post.png"; 
-import musicIcon from "../assets/music.png"; 
+import bgImage from "../assets/new post.png"; // Ensure this path is correct and file exists
 
 // Fix Leaflet marker icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -18,8 +17,7 @@ L.Icon.Default.mergeOptions({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
   iconRetinaUrl:
     "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  shadowUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
+  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
 });
 
 // Custom whisper marker
@@ -39,6 +37,7 @@ function MapUpdater({ position }) {
   const map = useMap();
   useEffect(() => {
     if (position && map) {
+      // Fly to the new position with a smooth animation
       map.flyTo(position, 16);
     }
   }, [map, position]);
@@ -51,6 +50,7 @@ function MyLocationMarker({ position, placeName }) {
 
   useEffect(() => {
     if (markerRef.current) {
+      // Open the popup as soon as the marker is rendered
       markerRef.current.openPopup();
     }
   }, [position]);
@@ -69,8 +69,8 @@ function MyLocationMarker({ position, placeName }) {
 const generateWhispers = (lat, lon) => {
   const whispers = [];
   for (let i = 0; i < 3; i++) {
-    const randomLat = lat + (Math.random() - 0.5) * 0.005;
-    const randomLon = lon + (Math.random() - 0.5) * 0.005;
+    const randomLat = lat + (Math.random() - 0.5) * 0.005; // Randomize latitude slightly
+    const randomLon = lon + (Math.random() - 0.5) * 0.005; // Randomize longitude slightly
     whispers.push({
       id: i,
       lat: randomLat,
@@ -82,7 +82,9 @@ const generateWhispers = (lat, lon) => {
 };
 
 // Main Map component
-export default function Map({ audioRef }) {
+export default function Map() {
+  // State variables for map position, place name, relevant places, whispers, search query, category, and loading status
+  // Initial position set to Delhi's coordinates (approximate center)
   const DELHI_COORDS = [28.6139, 77.2090];
   const [position, setPosition] = useState(DELHI_COORDS); 
   const [placeName, setPlaceName] = useState("Loading...");
@@ -90,27 +92,11 @@ export default function Map({ audioRef }) {
   const [whispers, setWhispers] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [category, setCategory] = useState("cafe");
-  const [loading, setLoading] = useState(true); 
-  const [isMuted, setIsMuted] = useState(false);
+  const [loading, setLoading] = useState(true); // Initial loading state for geolocation and data fetch
 
-  const navigate = useNavigate();
+  const navigate = useNavigate(); // Hook for navigation
 
-  // Sync mute state with audioRef
-  useEffect(() => {
-    if (audioRef?.current) {
-      setIsMuted(audioRef.current.muted);
-    }
-  }, [audioRef]);
-
-  // Toggle music mute state
-  const toggleMusic = () => {
-    if (audioRef?.current) {
-      audioRef.current.muted = !audioRef.current.muted;
-      setIsMuted(audioRef.current.muted);
-    }
-  };
-
-  // Fetch place name
+  // Function to fetch place name from latitude and longitude using Nominatim
   const fetchPlaceName = async (lat, lon) => {
     try {
       const response = await axios.get(
@@ -123,7 +109,8 @@ export default function Map({ audioRef }) {
     }
   };
 
-  // Fetch and set nearby places
+
+  // Function to fetch and set nearby places from Overpass API
   const fetchAndSetPlaces = async (lat, lon, cat = category) => {
     try {
       const query = `
@@ -140,85 +127,95 @@ export default function Map({ audioRef }) {
         (el) => el.tags && el.tags.name
       );
       setRelevantPlaces(places);
-      setWhispers(generateWhispers(lat, lon));
+      setWhispers(generateWhispers(lat, lon)); // Generate dummy whispers
     } catch (error) {
       console.error("Error fetching places:", error);
-      setRelevantPlaces([]);
+      setRelevantPlaces([]); // Clear places on error
       setWhispers([]);
     }
   };
 
-  // Get user's current location
-  const locateMe = async (useCurrentLocation = true) => {
-    setLoading(true);
+  // Function to get user's current geolocation
+  const locateMe = async (useCurrentLocation = true) => { // Marked as async
+    setLoading(true); // Start loading for new location
     if (useCurrentLocation && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
           const newPosition = [pos.coords.latitude, pos.coords.longitude];
-          setPosition(newPosition);
+          setPosition(newPosition); // Update map position
           const name = await fetchPlaceName(newPosition[0], newPosition[1]);
-          setPlaceName(name);
-          await fetchAndSetPlaces(newPosition[0], newPosition[1], category);
-          setLoading(false);
+          setPlaceName(name); // Update place name
+          await fetchAndSetPlaces(newPosition[0], newPosition[1], category); // Fetch nearby places
+          setLoading(false); // End loading
         },
-        async (err) => {
+        async (err) => { // This callback also needs to be async if it uses await
           console.error("Geolocation error:", err);
+          // If geolocation fails, fall back to Delhi
           setPosition(DELHI_COORDS);
           const name = await fetchPlaceName(DELHI_COORDS[0], DELHI_COORDS[1]);
           setPlaceName(name);
           await fetchAndSetPlaces(DELHI_COORDS[0], DELHI_COORDS[1], category);
-          setLoading(false);
+          setLoading(false); // End loading
         }
       );
     } else {
+      // If geolocation not supported or explicitly not used, use Delhi
       setPosition(DELHI_COORDS);
       const name = await fetchPlaceName(DELHI_COORDS[0], DELHI_COORDS[1]);
       setPlaceName(name);
-      await fetchAndSetPlaces(DELHI_COORDS[0], DELHI_COORDS[1], category);
-      setLoading(false);
+      await fetchAndSetPlaces(DELHI_COORDS[0], DELHI_COORDS[1], category); // Added await here
+      setLoading(false); // End loading
     }
   };
 
-  // Handle search
+  // Handler for the search bar submission
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (!searchQuery) return;
-    setLoading(true);
+    if (!searchQuery) return; // Don't search if query is empty
+
+    setLoading(true); // Start loading for search
     try {
       const response = await axios.get(
         `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
           searchQuery
         )}&format=json&limit=1`
       );
+
       if (response.data.length > 0) {
         const place = response.data[0];
         const newPosition = [parseFloat(place.lat), parseFloat(place.lon)];
-        setPosition(newPosition);
-        setPlaceName(place.display_name);
-        await fetchAndSetPlaces(newPosition[0], newPosition[1], category);
+        setPosition(newPosition); // Update map position
+        setPlaceName(place.display_name); // Update place name
+        await fetchAndSetPlaces(newPosition[0], newPosition[1], category); // Fetch nearby places
+        setLoading(false); // End loading
       } else {
         setPlaceName("No results found for your search.");
+        setLoading(false); // End loading
       }
     } catch (err) {
       console.error("Search error:", err);
+      setLoading(false); // End loading if error occurs
     }
-    setLoading(false);
   };
 
+  // Effect to run once on component mount to get initial location
   useEffect(() => {
-    locateMe();
+    // Attempt to locate user, otherwise default to Delhi
+    locateMe(); 
   }, []);
 
+  // Effect to refetch places when the category changes
   useEffect(() => {
-    if (
-      !loading &&
-      (position[0] !== DELHI_COORDS[0] || position[1] !== DELHI_COORDS[1])
-    ) {
+    // Only fetch if not initially loading and position is set
+    // Check if position is different from default London to avoid unnecessary fetches
+    // The previous default was London (51.505, -0.09). Now it's Delhi (28.6139, 77.2090).
+    // So, the condition should check against the initial DELHI_COORDS if geolocation failed.
+    if (!loading && (position[0] !== DELHI_COORDS[0] || position[1] !== DELHI_COORDS[1])) { 
       fetchAndSetPlaces(position[0], position[1], category);
     }
-  }, [category, position, loading]);
+  }, [category, position, loading]); // Depend on position and loading to ensure data is fetched after location is set
 
-  // Reusable Button component
+  // Reusable Button component with motion for hover and tap effects
   const Button = ({ children, icon: Icon, onClick, className = "" }) => (
     <motion.button
       whileHover={{ y: -1, boxShadow: "0 8px 28px rgba(0,0,0,0.18)" }}
@@ -233,7 +230,7 @@ export default function Map({ audioRef }) {
 
   return (
     <div
-      className="relative min-h-screen w-full overflow-hidden bg-cover bg-center"
+      className={`relative min-h-screen w-full overflow-hidden bg-cover bg-center`}
       style={{ backgroundImage: `url(${bgImage})` }}
     >
       {/* Back button */}
@@ -244,7 +241,8 @@ export default function Map({ audioRef }) {
         <FaArrowLeft className="text-pink-300 text-3xl cursor-pointer" />
       </div>
 
-      {/* Search + Category + Music */}
+      {/* Search and Category Filter */}
+      {/* Added mt-16 for mobile (mt-6 for larger screens) to move search bar down */}
       <div className="mx-auto mt-16 sm:mt-6 w-[95%] sm:w-[90%] max-w-3xl flex flex-col sm:flex-row gap-3">
         <form
           onSubmit={handleSearch}
@@ -281,27 +279,12 @@ export default function Map({ audioRef }) {
           <option value="park">Parks</option>
           <option value="library">Libraries</option>
         </select>
-
-        {/* Music button */}
-        <div className="ml-auto flex flex-wrap items-center">
-          <div className="relative cursor-pointer" onClick={toggleMusic}>
-            <img
-              src={musicIcon}
-              alt="Music"
-              className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12"
-            />
-            {isMuted && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-full h-[3px] bg-red-600 rotate-45"></div>
-              </div>
-            )}
-          </div>
-        </div>
       </div>
 
       {/* Map Container */}
       <div className="mx-auto mt-6 w-[95%] sm:w-[90%] max-w-5xl">
         <div className="relative h-[50vh] sm:h-[60vh] rounded-[28px] shadow-lg overflow-hidden">
+          {/* Loader Overlay */}
           {loading && (
             <div className="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-sm z-30">
               <DreamyLoader />
@@ -313,7 +296,8 @@ export default function Map({ audioRef }) {
             style={{ height: "100%", width: "100%" }}
             className="rounded-[28px]"
             whenCreated={(map) => {
-              window.addEventListener("resize", () => {
+              // Ensure map is responsive by invalidating its size on window resize
+              window.addEventListener('resize', () => {
                 setTimeout(() => map.invalidateSize(), 0);
               });
             }}
@@ -324,12 +308,15 @@ export default function Map({ audioRef }) {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               maxZoom={18}
             />
+            {/* My Location Marker */}
             <MyLocationMarker position={position} placeName={placeName} />
+            {/* Relevant Places Markers */}
             {relevantPlaces.map((place) => (
               <Marker key={place.id} position={[place.lat, place.lon]}>
                 <Popup>{place.tags.name}</Popup>
               </Marker>
             ))}
+            {/* Whisper Markers */}
             {whispers.map((whisper) => (
               <Marker
                 key={whisper.id}
@@ -348,7 +335,7 @@ export default function Map({ audioRef }) {
         <div className="pointer-events-auto flex flex-wrap items-center gap-4 sm:gap-6 rounded-3xl border border-white/20 bg-white/15 px-4 py-3 shadow-xl backdrop-blur-xl">
           <Button
             icon={Navigation}
-            onClick={() => locateMe(true)}
+            onClick={() => locateMe(true)} // Pass true to attempt geolocation
             className="bg-violet-500/90 hover:bg-violet-500/90"
           >
             Locate Me
