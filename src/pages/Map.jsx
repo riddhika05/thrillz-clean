@@ -66,24 +66,19 @@ function MyLocationMarker({ position, placeName }) {
 }
 
 // Helper function to generate dummy whispers around a given location
-const generateWhispers = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('Whispers') // The table name is case-sensitive and should match your schema
-      .select('latitude, longitude');
-
-    if (error) {
-      console.error('Error fetching data from Supabase:', error);
-      return [];
-    }
-    
-    // The data object already contains an array of { lat, lon } objects
-    return data;
-    
-  } catch (err) {
-    console.error('An unexpected error occurred:', err);
-    return [];
+const generateWhispers = (lat, lon) => {
+  const whispers = [];
+  for (let i = 0; i < 3; i++) {
+    const randomLat = lat + (Math.random() - 0.5) * 0.005; // Randomize latitude slightly
+    const randomLon = lon + (Math.random() - 0.5) * 0.005; // Randomize longitude slightly
+    whispers.push({
+      id: i,
+      lat: randomLat,
+      lon: randomLon,
+      content: `A whisper from a nearby spot! #${i + 1}`,
+    });
   }
+  return whispers;
 };
 
 // Main Map component
